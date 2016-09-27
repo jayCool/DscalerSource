@@ -539,6 +539,16 @@ public class OneKeyCombine implements Runnable {
         while (!map.containsKey(diff) && diff != 0) {
             if (loop % 1000 == 0) {
                 System.out.println(this.key + "    leftOver: " + diff);
+                //System.out.println("values: " + value);
+                String value_line="";
+                //String 
+                for (int i=0;i<value.size();i++){
+                    if (value.get(i)>0){
+                    value_line += "\t" +x.get(i)+":"+value.get(i);
+                    }
+                }
+                System.out.println(value_line);
+                //System.out.println("x: " + x);
                 loop = 0;
                 int products = product(x, value);
                 diff = dependAfter - products;
