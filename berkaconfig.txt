@@ -1,0 +1,14 @@
+account
+account_id district_id frequency date
+card
+card_id disp_id-disposition:disp_id type issued
+client
+client_id birth_number district_id
+disposition
+disp_id client_id-client:client_id account_id-account:account_id type
+loan
+loan_id account_id-account:account_id date amount duration payments status
+orders
+order_id account_id-account:account_id bank_to account_to amount k_symbol
+trans
+trans_id account_id-account:account_id date type operation amount balance k_symbol bank account
