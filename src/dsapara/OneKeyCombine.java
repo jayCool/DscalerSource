@@ -77,20 +77,22 @@ public class OneKeyCombine implements Runnable {
         ArrayList<Integer> x = new ArrayList<Integer>();
 
         x.addAll(downsizeDegree.keySet());
-        int max=Collections.max(x);
+        int max = Collections.max(x);
         ArrayList<Integer> value = new ArrayList<>();
         untouched = (int) Math.min(value.size() * 0.1, untouched);
         untouched = (int) (Math.random() * untouched);
         x = new ArrayList<>();
-        for (int i=0;i<=max;i++) {
-            if (downsizeDegree.containsKey(i)){
-            value.add(downsizeDegree.get(i));}
-            else {value.add(0);}
+        for (int i = 0; i <= max; i++) {
+            if (downsizeDegree.containsKey(i)) {
+                value.add(downsizeDegree.get(i));
+            } else {
+                value.add(0);
+            }
             x.add(i);
-        }   
-        
-        System.out.println("X size: " +x.size() + "   " + this.key);
-        
+        }
+
+        System.out.println("X size: " + x.size() + "   " + this.key);
+
         /*if (x.size() == 1) {
          for (int i = 0; i < x.get(x.size() - 1); i++) {
          x.add(i, i);
@@ -101,7 +103,6 @@ public class OneKeyCombine implements Runnable {
          value.add(0);
          }
          }*/
-
         int vtex = this.sumVector(value);
         int diffs = sourceAfter - vtex;
         if (Collections.min(value) < 0) {
@@ -127,7 +128,7 @@ public class OneKeyCombine implements Runnable {
 
         vtex = this.sumVector(value);
         diffs = sourceAfter - vtex;
-        
+
         System.out.println("value check: " + diffs);
         int kk = 0;
 
@@ -143,7 +144,7 @@ public class OneKeyCombine implements Runnable {
         System.out.println(key + "=================nodeAdjustment1 done" + diffs + "======================");
 
         int products = product(x, value);
-        System.out.println(value);
+        //  System.out.println(value);
         System.out.println(this.key + "products: " + products + " dependAfter: " + dependAfter);
         int diff = products - dependAfter;
         int sign = 1;
@@ -164,32 +165,31 @@ public class OneKeyCombine implements Runnable {
         products = product(x, value);
         diff = dependAfter - products;
         System.out.println(this.key + "   " + (1.0 * dependAfter / products));
-        if ((1.0 * dependAfter / products) > 1.1 && diff >0) {
+        if ((1.0 * dependAfter / products) > 1.1 && diff > 0) {
             int largest = x.get(x.size() - 1);
-            for (int i = largest + 1; i < largest * (1.0 * dependAfter / products); i++) {
+            for (int i = largest + 1; i < largest * Math.min(this.s, 1.0 * dependAfter / products); i++) {
                 x.add(i);
                 value.add(0);
             }
         }
-        
-        
+
         System.out.println(key + "   adjusted size: " + x.size());
         if (Collections.min(value) < 0) {
             System.out.print("Node Adjustment: " + value);
         }
-        
-          map = this.maximumRange(x, value, diff);
-              
+
+        map = this.maximumRange(x, value, diff);
+
         diff = smoothingLoop(diff, value, x);
-        
+
         products = product(x, value);
         System.out.println(this.key + "   Before: " + products);
         if (diff != 0) {
             ArrayList<Integer> arr = map.get(diff);
             value.set(arr.get(0), value.get(arr.get(0)) - 1);
             value.set(arr.get(1), value.get(arr.get(1)) + 1);
-       }
-        
+        }
+
         products = product(x, value);
         System.out.println(this.key + "   After: " + products);
         products = product(x, value);
@@ -198,7 +198,7 @@ public class OneKeyCombine implements Runnable {
             res.put(x.get(i), value.get(i));
         }
         this.calSourceAfter = sumVector(value);
-        
+
         System.out.println(this.key + "===============Tuple Adjustment 3 Done=========================" + products);
         return res;
     }
@@ -296,9 +296,9 @@ public class OneKeyCombine implements Runnable {
                 }
             }
         }
-        
-        System.out.println("original: " + orders);
-  System.out.println("simple scaled: " + results);
+
+      //  System.out.println("original: " + orders);
+        //System.out.println("simple scaled: " + results);
 
         if (this.s < 1) {
             Collections.sort(resultsa);
@@ -320,7 +320,7 @@ public class OneKeyCombine implements Runnable {
     }
 
     //Large scale degree is considered
-    HashMap<Integer, Integer> smoothDstat(HashMap<Integer, Integer> downsizeDegree, int dependAfter1, int sourceAfter1) {
+    /*  HashMap<Integer, Integer> smoothDstat(HashMap<Integer, Integer> downsizeDegree, int dependAfter1, int sourceAfter1) {
         ArrayList<Integer> x = new ArrayList<Integer>();
         if (this.evenNum) {
             dependAfter = dependAfter + dependAfter % 2;
@@ -428,7 +428,7 @@ public class OneKeyCombine implements Runnable {
 
             products = product(x, value);
             diff = dependAfter - products;
-            map = this.maximumRange(x, value,diff);
+            map = this.maximumRange(x, value, diff);
         }
 
         if (diff != 0) {
@@ -447,7 +447,7 @@ public class OneKeyCombine implements Runnable {
         //  System.out.println(value);
         return res;
     }
-
+     */
     private int sumVector(ArrayList<Integer> x) {
         int sum = 0;
         for (int y : x) {
@@ -538,32 +538,35 @@ public class OneKeyCombine implements Runnable {
         int loop = 0;
         while (!map.containsKey(diff) && diff != 0) {
             if (loop % 1000 == 0) {
-                System.out.println(this.key + "    leftOver: " + diff);
+             //   System.out.println(this.key + "    leftOver: " + diff);
                 //System.out.println("values: " + value);
-                String value_line="";
+                String value_line = "";
                 //String 
-                for (int i=0;i<value.size();i++){
-                    if (value.get(i)>0){
-                    value_line += "\t" +x.get(i)+":"+value.get(i);
+                for (int i = 0; i < value.size(); i++) {
+                    if (value.get(i) > 0) {
+                        value_line += "\t" + x.get(i) + ":" + value.get(i);
                     }
                 }
-                System.out.println(value_line);
+           //     System.out.println(this.key + "value_line: " + value_line);
                 //System.out.println("x: " + x);
                 loop = 0;
                 int products = product(x, value);
                 diff = dependAfter - products;
                 //System.out.println(this.key + "  diff: " + diff+"  stater: " + starter + "  end: " + ender + "   " + value.subList(0, 10));
-            
+
             }
             loop++;
-          //  diff = straightCut(diff, x, value, history);
+            //  diff = straightCut(diff, x, value, history);
 
             if (diff == 0) {
                 break;
             }
 
-          //  diff = expandIndex(diff, history, x, value);
-
+            //  diff = expandIndex(diff, history, x, value);
+            if (loop == 1 && this.key.sourceTable.equals("movie_photo")) {
+            //    System.out.println("diff: " + diff);
+           //     System.out.println("starter: " + this.starter + "  ender: " + this.ender);
+            }
             diff = twowayShrink(diff, x, value);
             //   System.out.println(key + "==========FK ADJUSTMENT===============" + diff + "            " + x + "           " + value);
             if (value.get(0) < 0) {
@@ -578,8 +581,8 @@ public class OneKeyCombine implements Runnable {
                 history.add(diff);
             }
         }
-        
-        if (Collections.min(value)<0){
+
+        if (Collections.min(value) < 0) {
             System.out.println("Something is wrong is the looping " + this.key);
         }
         return diff;
@@ -711,48 +714,58 @@ public class OneKeyCombine implements Runnable {
         }
         return diff;
     }
-int prevEnder=0;
+    int prevEnder = 0;
+
     private int twowayShrink(int diff, ArrayList<Integer> x, ArrayList<Integer> value) {
+
         if (diff < 0) {
-            if (value.get(ender) > 0) {
-                value.set(starter, value.get(starter) + 1);
-                value.set(ender, value.get(ender) - 1);
-                //   diff += (ender - starter);
-            int products = product(x, value);
-      diff = dependAfter - products;
-      
-                if (value.get(ender) <= 0) {
-                    maxflag = true;
-                }
-                starter++;
-                ender--;
-                edited = true;
-            } else {
+            while (value.get(ender) == 0) {
                 ender--;
             }
-        } else if (value.get(starter) > 0) {
+            value.set(starter, value.get(starter) + 1);
+            value.set(ender, value.get(ender) - 1);
+            //   diff += (ender - starter);
+            int products = product(x, value);
+            diff = dependAfter - products;
+
+            if (value.get(ender) <= 0) {
+                maxflag = true;
+            }
+            starter++;
+            ender--;
+            edited = true;
+            /* } else {
+                ender--;
+            }*/
+        } else {
+            while (value.get(starter) == 0) {
+                starter++;
+            }
+            // if (value.get(starter) > 0) {
             value.set(starter, value.get(starter) - 1);
             value.set(ender, value.get(ender) + 1);
             // diff -= (ender -starter);
             int products = product(x, value);
-      diff = dependAfter - products;
-      
+            diff = dependAfter - products;
+
             if (value.get(starter) <= 0) {
                 maxflag = true;
             }
             starter++;
             ender--;
             edited = true;
-        } else {
+            /* } else {
             starter++;
+        }}
+             */
         }
         if (starter >= ender) {
             starter = 0;
             if (diff < 0) {
-                if (prevEnder >0){
+                if (prevEnder > 0) {
                     ender = prevEnder;
-                    if (value.get(ender)==0){
-                        ender --;
+                    if (value.get(ender) == 0) {
+                        ender--;
                         prevEnder = ender;
                     }
                 }

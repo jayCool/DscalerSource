@@ -298,6 +298,7 @@ public class Dscaler {
         }
         for (Thread thr : arr) {
             thr.start();
+            
         }
         for (Thread thr : arr) {
             try {
