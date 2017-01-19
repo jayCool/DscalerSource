@@ -80,7 +80,7 @@ public class ParaReader implements Runnable {
                         }
                         lastLine.trim();
                         nonKeys[count] = lastLine;
-                        //System.out.println("lastline:" +lastLine);
+                        System.out.println("lastline:" +lastLine);
                     }
                 } catch (NoSuchElementException ne) {
                     

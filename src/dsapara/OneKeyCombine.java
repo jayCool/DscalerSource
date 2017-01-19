@@ -144,7 +144,7 @@ public class OneKeyCombine implements Runnable {
         System.out.println(key + "=================nodeAdjustment1 done" + diffs + "======================");
 
         int products = product(x, value);
-        //  System.out.println(value);
+        System.out.println(value);
         System.out.println(this.key + "products: " + products + " dependAfter: " + dependAfter);
         int diff = products - dependAfter;
         int sign = 1;
@@ -167,7 +167,7 @@ public class OneKeyCombine implements Runnable {
         System.out.println(this.key + "   " + (1.0 * dependAfter / products));
         if ((1.0 * dependAfter / products) > 1.1 && diff > 0) {
             int largest = x.get(x.size() - 1);
-            for (int i = largest + 1; i < largest * Math.min(this.s, 1.0 * dependAfter / products); i++) {
+            for (int i = largest + 1; i < largest * (1.0 * dependAfter / products); i++) {
                 x.add(i);
                 value.add(0);
             }
@@ -297,8 +297,8 @@ public class OneKeyCombine implements Runnable {
             }
         }
 
-      //  System.out.println("original: " + orders);
-        //System.out.println("simple scaled: " + results);
+        System.out.println("original: " + orders);
+        System.out.println("simple scaled: " + results);
 
         if (this.s < 1) {
             Collections.sort(resultsa);
@@ -320,7 +320,7 @@ public class OneKeyCombine implements Runnable {
     }
 
     //Large scale degree is considered
-    /*  HashMap<Integer, Integer> smoothDstat(HashMap<Integer, Integer> downsizeDegree, int dependAfter1, int sourceAfter1) {
+    HashMap<Integer, Integer> smoothDstat(HashMap<Integer, Integer> downsizeDegree, int dependAfter1, int sourceAfter1) {
         ArrayList<Integer> x = new ArrayList<Integer>();
         if (this.evenNum) {
             dependAfter = dependAfter + dependAfter % 2;
@@ -447,7 +447,7 @@ public class OneKeyCombine implements Runnable {
         //  System.out.println(value);
         return res;
     }
-     */
+
     private int sumVector(ArrayList<Integer> x) {
         int sum = 0;
         for (int y : x) {
@@ -538,21 +538,11 @@ public class OneKeyCombine implements Runnable {
         int loop = 0;
         while (!map.containsKey(diff) && diff != 0) {
             if (loop % 1000 == 0) {
-             //   System.out.println(this.key + "    leftOver: " + diff);
-                //System.out.println("values: " + value);
-                String value_line = "";
-                //String 
-                for (int i = 0; i < value.size(); i++) {
-                    if (value.get(i) > 0) {
-                        value_line += "\t" + x.get(i) + ":" + value.get(i);
-                    }
-                }
-           //     System.out.println(this.key + "value_line: " + value_line);
-                //System.out.println("x: " + x);
+                System.out.println(this.key + "    leftOver: " + diff);
                 loop = 0;
                 int products = product(x, value);
                 diff = dependAfter - products;
-                //System.out.println(this.key + "  diff: " + diff+"  stater: " + starter + "  end: " + ender + "   " + value.subList(0, 10));
+             //   System.out.println(this.key + "  diff: " + diff+"  stater: " + starter + "  end: " + ender + "   " + value.subList(0, 10));
 
             }
             loop++;
@@ -563,15 +553,12 @@ public class OneKeyCombine implements Runnable {
             }
 
             //  diff = expandIndex(diff, history, x, value);
-            if (loop == 1 && this.key.sourceTable.equals("movie_photo")) {
-            //    System.out.println("diff: " + diff);
-           //     System.out.println("starter: " + this.starter + "  ender: " + this.ender);
-            }
             diff = twowayShrink(diff, x, value);
             //   System.out.println(key + "==========FK ADJUSTMENT===============" + diff + "            " + x + "           " + value);
             if (value.get(0) < 0) {
                 System.exit(-1);
             }
+            
             if (maxflag) {
                 map = this.maximumRange(x, value, diff);
                 maxflag = false;
@@ -717,31 +704,24 @@ public class OneKeyCombine implements Runnable {
     int prevEnder = 0;
 
     private int twowayShrink(int diff, ArrayList<Integer> x, ArrayList<Integer> value) {
-
         if (diff < 0) {
-            while (value.get(ender) == 0) {
-                ender--;
-            }
-            value.set(starter, value.get(starter) + 1);
-            value.set(ender, value.get(ender) - 1);
-            //   diff += (ender - starter);
-            int products = product(x, value);
-            diff = dependAfter - products;
+            if (value.get(ender) > 0) {
+                value.set(starter, value.get(starter) + 1);
+                value.set(ender, value.get(ender) - 1);
+                //   diff += (ender - starter);
+                int products = product(x, value);
+                diff = dependAfter - products;
 
-            if (value.get(ender) <= 0) {
-                maxflag = true;
-            }
-            starter++;
-            ender--;
-            edited = true;
-            /* } else {
-                ender--;
-            }*/
-        } else {
-            while (value.get(starter) == 0) {
+                if (value.get(ender) <= 0) {
+                    maxflag = true;
+                }
                 starter++;
+                ender--;
+                edited = true;
+            } else {
+                ender--;
             }
-            // if (value.get(starter) > 0) {
+        } else if (value.get(starter) > 0) {
             value.set(starter, value.get(starter) - 1);
             value.set(ender, value.get(ender) + 1);
             // diff -= (ender -starter);
@@ -754,10 +734,8 @@ public class OneKeyCombine implements Runnable {
             starter++;
             ender--;
             edited = true;
-            /* } else {
+        } else {
             starter++;
-        }}
-             */
         }
         if (starter >= ender) {
             starter = 0;
