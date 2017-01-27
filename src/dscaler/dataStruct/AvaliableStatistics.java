@@ -3,10 +3,11 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package dbstrcture;
 
-/**
- *
- * @author ZhangJiangwei
- */
+package dscaler.dataStruct;
 
+public class AvaliableStatistics {
+    
+    public int[] start;
+    public int[] ids;
+}

@@ -3,9 +3,10 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package dsapara;
+package dscaler.dataStruct;
 
-import dbstrcture.CoDa;
+import dscaler.dataStruct.CoDa;
+import dbstrcture.ComKey;
 import dbstrcture.DB;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,7 +21,7 @@ public class ParaLoadCorr implements Runnable {
     //  HashMap<String, HashSet<String>> missingIDs;
 
     Map.Entry<String, ArrayList<ComKey>> entry;
-    HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
+    HashMap<String, ArrayList<ComKey>> jointDegreeTable;
     DB originalDB;
     CoDa originalCoDa;
 
@@ -33,7 +34,7 @@ public class ParaLoadCorr implements Runnable {
         HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> mmap = new HashMap<>();
         HashMap<Integer, ArrayList<ComKey>> combinedKeys = new HashMap<>();
         for (int i = 0; i < entry.getValue().size(); i++) {
-            combinedKeys.put(i, mergedDegreeTitle.get(entry.getValue().get(i).sourceTable));
+            combinedKeys.put(i, jointDegreeTable.get(entry.getValue().get(i).sourceTable));
         }
 
         String curTable = entry.getKey();
@@ -43,8 +44,8 @@ public class ParaLoadCorr implements Runnable {
             int[] tupleValue = originalDB.tables[curNum].fks[keyMappedID];
             ArrayList<ArrayList<Integer>> degree = new ArrayList<>(combinedKeys.size());
             for (int i = 0; i < combinedKeys.size(); i++) {
-                degree.add(this.originalCoDa.mergedDegrees.get(combinedKeys.get(i)).get(tupleValue[i]));
-                if (this.originalCoDa.mergedDegrees.get(combinedKeys.get(i)).get(tupleValue[i]) == null) {
+                degree.add(this.originalCoDa.jointDegrees.get(combinedKeys.get(i)).get(tupleValue[i]));
+                if (this.originalCoDa.jointDegrees.get(combinedKeys.get(i)).get(tupleValue[i]) == null) {
                     System.out.println(combinedKeys.get(i) + "-----" + keyMappedID + " "
                             + tupleValue[i] + "      " + i + "      " + entry.getKey());
                 }
@@ -63,9 +64,9 @@ public class ParaLoadCorr implements Runnable {
         }
         
         
-        this.originalCoDa.reverseReferenceVectors.put(curTable, mmap);
-        this.originalCoDa.referenceVectors.put(curTable, refDegree);
-        this.originalCoDa.rvCorrelationDis.put(curTable, degreeCount);
+        this.originalCoDa.reverseRVs.put(curTable, mmap);
+        this.originalCoDa.idRVs.put(curTable, refDegree);
+        this.originalCoDa.rvDis.put(curTable, degreeCount);
     }
 
 }

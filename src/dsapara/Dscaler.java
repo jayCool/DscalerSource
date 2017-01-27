@@ -1,40 +1,39 @@
- /*
+/*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 package dsapara;
 
-import dbstrcture.CoDa;
+import dsapara.paraComputation.ParaJoinTableGen;
+import dsapara.paraComputation.ParaMatchKV;
+import dsapara.paraComputation.ParaKeyIdAssign;
+import dsapara.paraComputation.ParaCompJDSum;
+import dsapara.paraComputation.ParaIdAssign;
+import dsapara.paraComputation.ParaSort;
+import dsapara.paraComputation.ParaCompAvaStats;
+import dscaler.dataStruct.AvaliableStatistics;
+import dbstrcture.Configuration;
+import dscaler.dataStruct.CoDa;
 import dbstrcture.DB;
-import dbstrcture.IdFeatures;
-import dbstrcture.Table;
-import java.io.BufferedReader;
+import dbstrcture.ComKey;
+import dsapara.paraComputation.ParaRVCorr;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Queue;
 import java.util.Scanner;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.text.html.parser.Entity;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import static org.kohsuke.args4j.ExampleMode.ALL;
+import org.kohsuke.args4j.Option;
 
 /**
  *
@@ -45,29 +44,39 @@ public class Dscaler {
     /**
      * @param args the command line arguments
      */
-    String inputFile = "config.txt";
-    String statistics = "subconfig.txt";
     int scaledVertexSize = 0;
-    double ratioOfFixedP = 0.0003;
-    double s = 2.5;
-    public String corrOriginal = "pre29Dec/keyDegree.txt";
-    public String filePath = "D:\\Research\\DATA\\dscaler\\acmdl\\";
-    String delim = "\\s+";
-    String twoRef = "socialgraph";
-    String outFile = "D:\\Research\\DATA\\dscaler\\acmdl\\out\\";
-    HashMap<String, ArrayList<ComKey>> referencingTable = new HashMap<>();
-    boolean ignoreFirst = true;
+       String twoRef = "socialgraph";
     final String scaleTableStr = "scaleTable.txt";
-    HashMap<String, ArrayList<ComKey>> mergedDegreeTitle = new HashMap<>();
-    String dynamicAddr;
+    public boolean eveNum = false;
     DB originalDB = new DB();
     CoDa originalCoDa = new CoDa();
     CoDa scaledCoda = new CoDa();
 
+    @Option(name = "-i", usage = "input of the folder", metaVar = "INPUT")
+    private String filePath = "";
+
+    @Option(name = "-o", usage = "ouput of the folder", metaVar = "OUTPUT")
+    private String outPath = "D:\\Research\\DATA\\dscaler\\acmdl\\out\\";
+
+    @Option(name = "-d", usage = "Delimilter of the fields", metaVar = "MODE")
+    private String delimiter  = "\\s+";
+
+    @Option(name = "-f", usage = "Ignore the first line", metaVar = "Thread")
+    private boolean ignoreFirst = false;
+
+    @Option(name = "-static", usage = "Static scale of the database", metaVar = "StaticScale")
+    private double staticS = 2;
+
+    @Option(name = "-dynamic", usage = "Dynamic scale of the database, input is the file", metaVar = "DynamicScale")
+    private String dynamicSFile = "";
+
+    @Option(name = "-l", usage = "leading index of the fks", metaVar = "Leading Index")
+    private int leading = 0;
+
     private HashMap<String, Integer> loadSaleTable() throws FileNotFoundException {
 
         HashMap<String, Integer> map = new HashMap<>();
-        if (this.dynamicAddr.length() > 0) {
+        if (this.dynamicSFile.length() > 0) {
             Scanner scanner = new Scanner(new File(filePath + "/" + this.scaleTableStr));
 
             while (scanner.hasNext()) {
@@ -77,7 +86,7 @@ public class Dscaler {
             }
         } else {
             for (Entry<String, Integer> entry : this.oldTableSize.entrySet()) {
-                map.put(entry.getKey(), (int) (entry.getValue() * this.s));
+                map.put(entry.getKey(), (int) (entry.getValue() * this.staticS));
             }
         }
         return map;
@@ -85,8 +94,39 @@ public class Dscaler {
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
         Dscaler fsq = new Dscaler();
+        fsq.parseParameter(args);
         fsq.run();
     }
+
+    private void parseParameter(String[] args) throws FileNotFoundException {
+        CmdLineParser parser = new CmdLineParser(this);
+        try {
+            parser.parseArgument(args);
+            if (!filePath.isEmpty() && !outPath.isEmpty()) {
+                Dscaler fsq = new Dscaler();
+                fsq.delimiter  = delimiter ;
+                fsq.ignoreFirst = ignoreFirst;
+                fsq.dynamicSFile = dynamicSFile;
+                fsq.filePath = filePath;
+                fsq.outPath = outPath;
+                fsq.staticS = staticS;
+                try {
+                    fsq.run();
+                } catch (IOException ex) {
+                    Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+        } catch (CmdLineException e) {
+            System.err.println(e.getMessage());
+            System.err.println("java SampleMain [options...] arguments...");
+            parser.printUsage(System.err);
+            System.err.println();
+            System.err.println("  Example: java SampleMain" + parser.printExample(ALL));
+            return;
+        }
+    }
+
     private HashMap<String, Integer> oldTableSize = new HashMap<>();
 
     public Dscaler(String string) {
@@ -94,15 +134,6 @@ public class Dscaler {
     }
 
     Dscaler() {
-    }
-
-    private void settleCorrVetex(MergeVertex corrVertex, String sourceTable) {
-        corrVertex.corrOriginal = this.corrOriginal;
-        corrVertex.scaledVertexSize = this.scaledVertexSize;
-        //     System.out.println(this.scaledVertexSize+"vertexSize");
-        corrVertex.stime = this.scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable);
-        corrVertex.rationP = this.ratioOfFixedP;
-        corrVertex.mappedBestJointDegree = this.mappedBestJointDegree;
     }
 
     void processRaw() throws FileNotFoundException {
@@ -131,168 +162,22 @@ public class Dscaler {
         scanner.close();
 
     }
-    HashMap<String, Integer> tableSize = new HashMap<>();
-    HashMap<String, Integer> tupleSize = new HashMap<>();
-    HashMap<String, Boolean> uniqueNess = new HashMap<>();
 
-    private HashMap<String, ArrayList<String>> loadMap() throws FileNotFoundException {
-        HashMap<String, ArrayList<String>> map = new HashMap<>();
-        Scanner scanner = new Scanner(new File(filePath + "/" + inputFile));
-        while (scanner.hasNext()) {
-            String[] splits = scanner.nextLine().trim().split("\\s+");
-            int num = Integer.parseInt(splits[1]);
-            String tableName = splits[0];
-            boolean uniq = Boolean.parseBoolean(splits[3]);
-            tableSize.put(tableName, num);
-            uniqueNess.put(tableName, uniq);
-            tupleSize.put(tableName, Integer.parseInt(splits[2]));
-            //System.out.println(tableName);
-            String[] attributes = scanner.nextLine().split("\\s+");
-            ArrayList<String> arr = new ArrayList<>();
-            for (int i = 0; i < num + 1 && i < attributes.length; i++) {
-                arr.add(attributes[i]);
-            }
-            map.put(tableName, arr);
-        }
-        return map;
-    }
-
-    //Return the map which indicates the FK referencing relation. Key is the table name, Value is the referenced table and the corrspoondoing index.
-    private HashMap<String, ArrayList<ComKey>> fkRelation(HashMap<String, ArrayList<String>> maps) {
-        HashMap<String, ArrayList<ComKey>> result = new HashMap<>();
-        for (Entry<String, ArrayList<String>> table : maps.entrySet()) {
-            String tName = table.getKey();
-            ArrayList<String> fks = new ArrayList<>();
-
-            for (int i = 1; i < table.getValue().size(); i++) {
-                String aName = table.getValue().get(i);
-                if (aName.contains("-")) {
-                    String[] temp = aName.split("-");
-                    maps.get(tName).set(i, temp[0]);
-                    String[] temps = temp[1].split(":");
-                    // ArrayList<String> arr = new ArrayList<>();
-                    ComKey comkey = new ComKey();
-                    comkey.sourceTable = temps[0];
-                    comkey.referencingTable = tName;
-                    comkey.referenceposition = i;
-                    if (!(tName.equals("socialgraph") && i == 2)) {
-                        fks.add(temps[0]);
-                        if (!result.containsKey(tName)) {
-                            result.put(tName, new ArrayList<ComKey>());
-                        }
-                        if (!result.get(tName).contains(comkey)) {
-                            result.get(tName).add(comkey);
-                        }
-                    } else {
-                        result.get(tName).add(result.get(tName).get(0));
-                    }
-                }
-            }
-
-        }
-        this.referencingTable = result;
-        return result;
-    }
-    //Table[] originalDBtables;
-    //  HashMap<String, Integer> tableMapping = new HashMap<>();
-
-    private void loadTuple(Set<String> keySet, HashMap<String, ArrayList<String>> tableIDs) throws FileNotFoundException, IOException {
-
-        ArrayList<Thread> liss = new ArrayList<>();
-        //  HashMap<String, Table> db= new HashMap<>();
-        this.originalDB.tables
-                = new Table[keySet.size()];
-        int count = 0;
-        for (String table : keySet) {
-            ParaReader pr = new ParaReader(table);
-            pr.tables = this.originalDB.tables;
-            originalDB.tableMapping.put(table, count);
-            pr.tableNum = count;
-            count++;
-
-            pr.oldTableSize = this.oldTableSize;
-            pr.ignoreFirst = this.ignoreFirst;
-            pr.delim = this.delim;
-            pr.filePath = this.filePath;
-            pr.tableSize = tableSize.get(table);
-            pr.tupleSize = this.tupleSize;
-            Thread thr = new Thread(pr);
-
-            liss.add(thr);
-            thr.start();
-        }
-        for (Thread thr : liss) {
-            try {
-                thr.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-    }
-
-    //key [table1,table2], table 1 is the source table, table 2 is the referceing table.
-    private void loadCounts(HashMap<String, ArrayList<ComKey>> fkRelation) {
-        for (Entry<String, ArrayList<ComKey>> entry : fkRelation.entrySet()) {
-            int count = 0;
-            for (ComKey entry1 : entry.getValue()) {
-
-                String tableName = entry.getKey();
-                int colNum = entry1.referenceposition;
-                if (tableName.equals("socialgraph") && count == 1) {
-                    colNum = entry1.referenceposition + 1;
-                    continue;
-                }
-                int tableNum = this.originalDB.tableMapping.get(tableName);
-
-                String srcTable = entry1.sourceTable;
-                int srcNum = this.originalDB.getTableNum(srcTable);
-
-                IdFeatures idFeatures = new IdFeatures();
-                idFeatures.idcounts = new int[this.originalDB.tables[srcNum].fks.length];
-
-                for (int[] arr : this.originalDB.tables[tableNum].fks) {
-                    int id = arr[colNum - 1];
-                    idFeatures.idcounts[id] += 1;
-                }
-                this.originalCoDa.comKeyMapping.put(entry1, idFeatures);
-                count++;
-            }
-        }
-    }
-
-    private void freCounts() {
-        for (Entry<ComKey, IdFeatures> entry : this.originalCoDa.comKeyMapping.entrySet()) {
-            HashMap<Integer, Integer> freCounts = new HashMap<>();
-            for (int c : entry.getValue().idcounts) {
-                if (!freCounts.containsKey(c)) {
-                    freCounts.put(c, 1);
-                } else {
-                    freCounts.put(c, 1 + freCounts.get(c));
-                }
-            }
-            this.originalCoDa.freCounts.put(entry.getKey(), freCounts);
-        }
-    }
     HashMap<String, Integer> scaleCounts = new HashMap<>();
     HashMap<String, Integer> scaleTableSize = new HashMap<>();
 
     private void scaleDistribution()
             throws FileNotFoundException {
         ArrayList<Thread> arr = new ArrayList<>();
-        for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.freCounts.entrySet()) {
+        for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.idFreqDis.entrySet()) {
             ComKey key = entry.getKey();
             String sourceTable = key.sourceTable;
             String dependTable = key.referencingTable;
-            OneKeyCombine okCombine = new OneKeyCombine(this.scaledCoda.freCounts, scaleCounts, key, entry.getValue());
-            okCombine.s = 1.0*this.scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable);
-            System.out.println(okCombine.s);
-            if (entry.getKey().sourceTable.equals("socialgraph")) {
-                okCombine.evenNum = true;
-            }
-            okCombine.dependAfter = this.scaleTableSize.get(dependTable);
-            okCombine.sourceAfter = this.scaleTableSize.get(sourceTable);
-            Thread thr = new Thread(okCombine);
-            // thr.start();
+            DegreeScaler degreeScaler = new DegreeScaler(this.scaledCoda.idFreqDis, scaleCounts, key, entry.getValue());
+            degreeScaler.s = 1.0 * this.scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable);
+            degreeScaler.dependAfter = this.scaleTableSize.get(dependTable);
+            degreeScaler.sourceAfter = this.scaleTableSize.get(sourceTable);
+            Thread thr = new Thread(degreeScaler);
             arr.add(thr);
 
         }
@@ -309,149 +194,132 @@ public class Dscaler {
 
     }
 
-    public void run() throws FileNotFoundException, IOException {
-        HashMap<String, ArrayList<String>> maps = loadMap();
-        System.out.println("====================Map Loaded=============================");
-        System.out.println(maps);
+    HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> correlateRV(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalRVDis,
+            HashMap<String, ArrayList<ComKey>> mergedDegreeTitle,
+            HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts, HashMap<String, Boolean> uniqueNess,
+            HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap,
+            HashMap<String, ArrayList<ComKey>> referenceTable
+    ) {
 
-        //key is the foreign key name
-        HashMap<String, ArrayList<ComKey>> fkRelation = fkRelation(maps);
-        System.out.println(fkRelation);
-        HashMap<String, ArrayList<String>> tableIDs = new HashMap<>();
-        System.out.println("=========================loadTuples=======================");
+        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDis = new HashMap<>();
 
-        loadTuple(maps.keySet(), tableIDs);
-     //   checkSocialGraph();
-        // this.originalDB.tableMapping.get("socialgraph")
-        this.scaleTableSize = loadSaleTable();
-        System.gc();
-        System.out.println("\n===============================Exteact Information====================");
-        loadCounts(fkRelation);
-        HashMap<String, ArrayList<ComKey>> mergedDegreeTitle = processMergeDegreeTitle(this.originalCoDa.comKeyMapping.keySet());
-        System.out.println(mergedDegreeTitle);
-        System.gc();
-        System.out.println("======================Combine merged Degree=====================");
-        processMergeDegree(mergedDegreeTitle);
-        System.out.println("===========================Process correlation=================");
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalRVEntry : originalRVDis.entrySet()) {
+            String curTable = originalRVEntry.getKey();
 
-        loadCorrelation(mergedDegreeTitle);
+            if (eveNum) {
+                for (Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV : originalRVEntry.getValue().entrySet()) {
+                    ArrayList<ArrayList<Integer>> reverseKey = new ArrayList<>();
+                    reverseKey.add(originalRV.getKey().get(1));
+                    reverseKey.add(originalRV.getKey().get(0));
+                    if (!originalRVEntry.getValue().containsKey(reverseKey) || !originalRVEntry.getValue().get(reverseKey).equals(originalRV.getValue())) {
+                        System.exit(-1);
+                    }
+                }
 
-        System.out.println("====================Process Key Distribution =====================");
-        //  HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<String>>> reverseKeyDistribution = new HashMap<>();
-        processBiDegree();
+            }
+            ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDis, ckJDAvaCounts, originalRVEntry.getValue(), 
+                    scaledJDDis,  mergedDegreeTitle);
 
-        this.originalCoDa.referenceVectors = null;
-
-        System.out.println("======================Process FreCounts====================");
-        freCounts();
-        processMergeDistribution();
-        HashMap<String, ArrayList<ComKey>> avaMaps = this.referencingTable;
-
-        System.out.println("=======================Process AVA MAP======================");
-
-        this.originalCoDa.mergedDegrees = null;
-        this.originalCoDa.comKeyMapping = null;
-
-        System.out.println("=====================Sort Correlation=======================");
-        
-        long start = System.currentTimeMillis();
-
-        System.out.println("====================Scale Distribution======================= ");
-
-        scaleDistribution();
-        this.originalCoDa.freCounts = null; //memory cleaning
-
-        long temp = System.currentTimeMillis();
-        System.out.println("DS TIMING:" + (temp - start) / 1000);
-        //  System.out.println("JDC ");
-        this.originalDB.dropFKs();
-        System.out.println("======================================JDC============================================");
-        corrMap();
-
-        this.scaledCoda.freCounts = null;
-        long temp1 = System.currentTimeMillis();
-        System.out.println("JDC Timing:" + (temp1 - temp) / 1000);
-
-        System.out.println("=========================Some Computation=================================================");
-        HashMap<ArrayList<String>, HashMap<ArrayList<Integer>, Double>> downsizedMergedRatio = new HashMap<>();
-
-        HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> avaCounts = new HashMap<>();
-        HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> avaInfo = new HashMap<>();
-        processAvaID(avaInfo, avaCounts);
-        CorrelationVertex1 corrVertex = new CorrelationVertex1();
-        corrVertex.scaleTableSize = this.scaleTableSize;
-        corrVertex.oldTableSize = this.oldTableSize;
-
-        corrVertex.referenceTable = this.referencingTable;
-        System.err.println("Some Computation Time: " + (System.currentTimeMillis() - temp1) / 1000);
-        System.out.println("======================Dismap Compuation============================");
-        HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> distanceMap = new HashMap<>();
-        this.mergedDegreeTitle = mergedDegreeTitle;
-        System.out.println("mergeDegree: " + this.mergedDegreeTitle);
-        disMapComp(distanceMap, avaInfo);
-        System.out.println(distanceMap.keySet() + "  " + distanceMap.keySet().size());
-        corrVertex.distanceMap = distanceMap;
-        temp = System.currentTimeMillis();
-        System.err.println("Computation:" + (temp - temp1) / 1000);
-
-        System.err.println("==============================RVC====================================================");
-        corrVertex.originalCoDa = this.originalCoDa;
-        corrVertex.mappedBestJointDegree = this.mappedBestJointDegree;
-        corrVertex.uniqueNess = this.uniqueNess;
-        this.scaledCoda.rvCorrelationDis
-                = corrVertex.corrDist(this.scaledCoda.mergedDistribution, this.originalCoDa.rvCorrelationDis, mergedDegreeTitle,
-                        downsizedMergedRatio, avaCounts);
-
-        temp1 = System.currentTimeMillis();
-        System.err.println("RVC Running time:" + (temp - temp1));
-
-        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs = new HashMap<>(); //KEY IS THE DEGREE, VALUE ARE THOSE IDS WITH THE DEGREE
-
-        ArrayList<String> keyTables = new ArrayList<>();
-        ArrayList<String> refTables = new ArrayList<>();
-        for (String entry : this.scaledCoda.rvCorrelationDis.keySet()) {
-            refTables.add(entry);
+            paraRVCorr.originalCoDa = this.originalCoDa;
+            paraRVCorr.eveNum = eveNum;
+            paraRVCorr.sRatio = this.scaleTableSize.get(curTable) * 1.0 / this.oldTableSize.get(curTable);
+            paraRVCorr.curTable = curTable;
+            paraRVCorr.referenceTable = referenceTable;
+            paraRVCorr.mappedBestJointDegree = this.mappedBestJointDegree;
+            paraRVCorr.uniqueNess = uniqueNess;
+            Thread thread = new Thread(paraRVCorr);
+            threadList.add(thread);
+            thread.start();
+            eveNum = false;
         }
 
-        ArrayList<String> joinTables = new ArrayList<>();
-        for (String table : avaInfo.keySet()) {
-            if (refTables.contains(table)) {
-                keyTables.add(table);
-                refTables.remove(table);
-            } else {
-                joinTables.add(table);
+        for (Thread thr : threadList) {
+            try {
+                thr.join();
+            } catch (InterruptedException ex) {
+                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        System.out.println("====================Localized Join IDs==========================");
-        localequatingMergedIDs(avaInfo, this.originalCoDa.reverseMergedDegrees, joinTables);
+        return scaledRVDis;
+    }
 
-        //   this.originalCoDa.reverseMergedDegrees = null;
-        System.out.println("==========================Assign IDs================================");
+    public void run() throws FileNotFoundException, IOException {
+        originalDB.loadMap(filePath + Configuration.configFile);
+        System.out.println("====================Map Loaded=============================");
+        originalDB.load_fkRelation();
+        originalDB.loadTuple(filePath, leading, ignoreFirst, delimiter );
+        this.scaleTableSize = loadSaleTable();
+        System.gc();
+        System.out.println("\n===============================Extract ID Counts====================");
+        originalCoDa.loadKeyCounts(originalDB.fkRelation, originalDB);
 
-        HashMap<String, ArrayList<ArrayList<Integer>>> assignIDs
-                = assignReferenceTable(this.scaledCoda.rvCorrelationDis, avaMaps, referencingIDs, avaInfo, this.originalCoDa.reverseReferenceVectors);
-        temp = System.currentTimeMillis();
+        System.out.println("======================Compute Joint Degree=====================");
+        originalCoDa.processJointDegreeTable(originalDB.chainKey_map.keySet());
+        originalCoDa.processJointDegree(originalDB);
 
-        System.err.println("Assign ID time:" + (temp - temp1));
+        System.out.println("===========================Process correlation=================");
+        originalCoDa.processRV(originalDB);
+        System.out.println("====================Process Key Distribution =====================");
+        originalCoDa.processKV();
 
-        System.out.println("====================Matching ids=============================");
+        System.out.println("======================Process FreCounts====================");
+        originalCoDa.processIdFrequency();
+        originalCoDa.processJointDis();
+        //HashMap<String, ArrayList<ComKey>> referencingTables = this.referencingTable;
+
+        long start = System.currentTimeMillis();
+        System.out.println("====================Scale Distribution======================= ");
+        scaleDistribution();
+        originalCoDa.dropIdFreqDis();
+        originalDB.dropFKs();
+
+        System.out.println("====================Joint Degree Correlation======================");
+        corrMap();
+        scaledCoda.dropIdFreqDis();
+
+        System.out.println("====================Computation=======================");
+        HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts = new HashMap<>();
+        HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats = new HashMap<>();
+        compAvaliableStats(srcJDAvaStats, ckJDAvaCounts);
+        HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap = new HashMap<>();
+        compJDSum(jdSumMap, srcJDAvaStats);
+
+        System.err.println("==============================RVC====================================================");
+        scaledCoda.rvDis = correlateRV(scaledCoda.jointDegreeDis, originalCoDa.rvDis,
+                originalDB.mergedDegreeTitle,  ckJDAvaCounts,
+                convertUniqueness(originalDB.tableType), jdSumMap, originalDB.fkRelation);
+        
+        ArrayList<String> keyTables = new ArrayList<>();
+        ArrayList<String> refTables = new ArrayList<>();
+        ArrayList<String> joinTables = new ArrayList<>();
+       
+        computeKeyRefTables(keyTables, refTables,joinTables, srcJDAvaStats);
+      
+        
+        System.out.println("====================Print Pure Join Tables==========================");
+        localequatingMergedIDs(srcJDAvaStats, this.originalCoDa.reverseJointDegrees, joinTables);
+
+        System.out.println("====================Assign IDs To RV/KV==========================");
+        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs = new HashMap<>(); //KEY IS THE DEGREE, VALUE ARE THOSE IDS WITH THE DEGREE
+        HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids
+                = assignReferenceTable(this.scaledCoda.rvDis, referencingIDs, srcJDAvaStats, this.originalCoDa.reverseRVs);
+        
+        System.out.println("================Matching RV & JD id For KV ======================");
         HashMap<String, HashMap<Integer, Integer>> scaledBiMap = new HashMap<>();
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs = new HashMap<>();
 
-        if (!this.originalCoDa.kvCorrelationDis.isEmpty()) {
-            scaledBiMap = matchBiDegree(referencingIDs, avaInfo, this.originalCoDa.kvCorrelationDis, keyVectorIDs, keyTables);
+        if (!this.originalCoDa.kvDis.isEmpty()) {
+            scaledBiMap = matchBiDegree(referencingIDs, srcJDAvaStats, this.originalCoDa.kvDis, keyVectorIDs, keyTables);
         }
-        temp1 = System.currentTimeMillis();
-        this.originalCoDa.kvCorrelationDis = null; //empty the memory
-        System.out.println("Matching ID time:" + (-temp + temp1));
-        System.out.println("====================Localized IDs==========================");
-
+        this.originalCoDa.dropKVDis(); 
         System.out.println("====================Localized Key IDs==========================");
-        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs, this.originalCoDa.reverseKeyVectors, keyTables);
+        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs, this.originalCoDa.reverseKV, keyTables);
         keyVectorIDs = null;
         //reverseKeyDistribution = null;
-        this.originalCoDa.reverseKeyVectors = null;
-        localKeyIDs(assignIDs, localkeyMaps, scaledBiMap, keyTables, "local");
+        this.originalCoDa.reverseKV = null;
+        localKeyIDs(rvFKids, localkeyMaps, scaledBiMap, keyTables, "local");
         scaledBiMap = null;
         localkeyMaps = null;
 
@@ -464,30 +332,25 @@ public class Dscaler {
         }
         long ended = System.currentTimeMillis();
 
-        System.out.println("LocalEquating Time:" + (ended - temp1));
         System.out.println("LocalRunning time=" + (ended - start - 0) / 1000 + "s");
         PrintWriter time = new PrintWriter(new BufferedWriter(new FileWriter("time.txt", true)));
-        time.println(this.s + "    " + (ended - start - 0) / 1000);
+        time.println(this.staticS + "    " + (ended - start - 0) / 1000);
         //more code
         time.close();
-     }
+    }
 
-    private void processAvaID(
-            HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> avaInfo, HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> avaCounts) {
+    private void compAvaliableStats(
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats,
+            HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts) {
 
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> entry : this.scaledCoda.mergedDistribution.entrySet()) {
-
-            int i = 0;
-            ParaProcessAvaID ppad = new ParaProcessAvaID(i, entry, avaInfo, avaCounts);
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeentry : this.scaledCoda.jointDegreeDis.entrySet()) {
+            ParaCompAvaStats ppad = new ParaCompAvaStats(jointDegreeentry, srcJDAvaStats, ckJDAvaCounts);
             Thread thr = new Thread(ppad);
-            liss.add(thr);
-
+            threadList.add(thr);
             thr.start();
-
-            //   }
         }
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
@@ -495,90 +358,6 @@ public class Dscaler {
             }
         }
 
-    }
-
-    private HashMap<String, ArrayList<ComKey>> processMergeDegreeTitle(Set<ComKey> keySet) {
-        HashMap<String, ArrayList<ComKey>> result = new HashMap<>();
-        for (ComKey key : keySet) {
-            if (!result.containsKey(key.sourceTable)) {
-                result.put(key.sourceTable, new ArrayList<ComKey>());
-            }
-            if (!result.get(key.sourceTable).contains(key)) {
-                result.get(key.sourceTable).add(key);
-            }
-        }
-        return result;
-    }
-
-    //mergedDegreeTitle was key=Source Table, Value are those referencing tables
-    private void processMergeDegree(HashMap<String, ArrayList<ComKey>> mergedDegreeTitle
-    ) {
-        for (Entry<String, ArrayList<ComKey>> entry : mergedDegreeTitle.entrySet()) {
-            ArrayList<ComKey> keys = new ArrayList<>();
-            keys.addAll(entry.getValue());
-            HashMap<ArrayList<Integer>, ArrayList<Integer>> mmap = new HashMap<>();
-            String tableName = entry.getKey();
-            int tableNum = this.originalDB.getTableNum(tableName);
-            ArrayList<ArrayList<Integer>> allDegrees = new ArrayList<>(this.originalDB.tables[tableNum].fks.length);
-
-            for (int pkid = 0; pkid < this.originalDB.tables[tableNum].fks.length; pkid++) {
-                ArrayList<Integer> degrees = new ArrayList<>(keys.size());
-
-                for (int o = 0; o < keys.size(); o++) {
-                    ComKey group = keys.get(o);
-                    degrees.add(this.originalCoDa.comKeyMapping.get(group).idcounts[pkid]);
-                }
-                if (!mmap.containsKey(degrees)) {
-                    mmap.put(degrees, new ArrayList<Integer>());
-                }
-                mmap.get(degrees).add(pkid);
-                allDegrees.add(degrees);
-            }
-
-            this.originalCoDa.reverseMergedDegrees.put(keys, mmap);
-            this.originalCoDa.mergedDegrees.put(keys, allDegrees);
-        }
-    }
-
-    private void processMergeDistribution() {
-        for (Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> entry : this.originalCoDa.mergedDegrees.entrySet()) {
-            HashMap<ArrayList<Integer>, Integer> maps = new HashMap<>();
-            for (int i = 0; i < entry.getValue().size(); i++) {
-                if (!maps.containsKey(entry.getValue().get(i))) {
-                    maps.put(entry.getValue().get(i), 1);
-                } else {
-                    maps.put(entry.getValue().get(i), 1 + maps.get(entry.getValue().get(i)));
-                }
-            }
-            this.originalCoDa.mergedDistribution.put(entry.getKey(), maps);
-        }
-    }
-
-    private void loadCorrelation(
-            HashMap<String, ArrayList<ComKey>> mergedDegreeTitle
-    ) throws FileNotFoundException {
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, ArrayList<ComKey>> entry : referencingTable.entrySet()) {
-
-            ParaLoadCorr plc = new ParaLoadCorr();
-            plc.originalDB = this.originalDB;
-            plc.entry = entry;
-            plc.mergedDegreeTitle = mergedDegreeTitle;
-            plc.originalCoDa = this.originalCoDa;
-
-            Thread thr = new Thread(plc);
-            liss.add(thr);
-            thr.start();
-
-        }
-
-        for (Thread thr : liss) {
-            try {
-                thr.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
     }
 
     int indexcount = 0;
@@ -621,25 +400,28 @@ public class Dscaler {
     HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree = new HashMap<>();
 
     private void corrMap() {
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> entry : this.originalCoDa.mergedDistribution.entrySet()) {
-            ArrayList<HashMap<Integer, Integer>> arrs = new ArrayList<>();
-            for (ComKey ck : entry.getKey()) {
-                arrs.add(this.scaledCoda.freCounts.get(ck));
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : originalCoDa.jointDegreeDis.entrySet()) {
+            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs = new ArrayList<>();
+            for (ComKey ck : jointDegreeEntry.getKey()) {
+                scaledIdFreqs.add(scaledCoda.idFreqDis.get(ck));
             }
-            MergeVertex mergeVertex = new MergeVertex(this.scaledCoda.mergedDistribution, entry.getKey(), arrs, entry.getValue());
-            settleCorrVetex(mergeVertex, entry.getKey().get(0).sourceTable);
+            String sourceTable = jointDegreeEntry.getKey().get(0).sourceTable;
+            JDCorrelation jdCorrelation = new JDCorrelation(
+                    this.scaledCoda.jointDegreeDis, jointDegreeEntry.getKey(), scaledIdFreqs, jointDegreeEntry.getValue());
+            jdCorrelation.initialize(
+                    scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable), mappedBestJointDegree);
 
-            Thread thr = new Thread(mergeVertex);
-            liss.add(thr);
+            Thread thread = new Thread(jdCorrelation);
+            threadList.add(thread);
 
         }
 
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             thr.start();
         }
 
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
@@ -648,16 +430,13 @@ public class Dscaler {
         }
     }
 
-    private void disMapComp(HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> distanceMap,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> avaCounts
+    private void compJDSum(HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> distanceMap,
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats
     ) {
         ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<Integer>, AvaStat>> entry : avaCounts.entrySet()) {
-            for (ComKey ck : mergedDegreeTitle.get(entry.getKey())) {
-                ParaDisComp pdc = new ParaDisComp(distanceMap, entry, ck);
-                //    Thread thr = new Thread(pdc);
-                //   liss.add(thr);
-                //     thr.start();
+        for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStatsEntry : srcJDAvaStats.entrySet()) {
+            for (ComKey ck : originalDB.mergedDegreeTitle.get(srcJDAvaStatsEntry.getKey())) {
+                ParaCompJDSum pdc = new ParaCompJDSum(distanceMap, srcJDAvaStatsEntry, ck);
                 pdc.singlerun();
             }
         }
@@ -670,6 +449,7 @@ public class Dscaler {
             }
         }
     }
+
     ArrayList<Integer> curIndexes;
     //HashMap<String, List<Map.Entry<ArrayList<ArrayList<Integer>>, Integer>>> sortedCorrs = new HashMap<>();
 
@@ -688,34 +468,30 @@ public class Dscaler {
                     refTable = ref;
                 }
             }
-            //     int tableNum = originalDB.getTableNum(entry.getKey());
+            //     int tableNum = originalDB.getTableNum(jointDegreeEntry.getKey());
             if (keyTables.contains(entry.getKey())) {
-                File file = new File(outFile + "/" +   entry.getKey() + ".txt");
+                File file = new File(outPath + "/" + entry.getKey() + ".txt");
                 FileWriter writer = new FileWriter(file);
                 BufferedWriter pw = new BufferedWriter(writer, 100000);
                 int tableNum = this.originalDB.getTableNum(entry.getKey());
-                int size = this.originalDB.tables[tableNum].tuplesize;
+                int size = this.originalDB.tables[tableNum].fkSize;
                 for (Entry<Integer, Integer> entry2 : entry.getValue().entrySet()) {
                     pw.write("" + entry2.getKey());
                     int corId = scaledBiMap.get(entry.getKey()).get(entry2.getKey());
-                   // if (!assignIDs.get(refTable).(corId)){
-                   //     System.out.println("Somthing Wrong");
-                   // }
                     for (int t : assignIDs.get(refTable).get(corId)) {
                         pw.write("|" + t);
                     }
-                    int size1 = assignIDs.get(refTable).get(scaledBiMap.get(entry.getKey()).get(entry2.getKey())).size();
                     String rrid = "" + entry2.getValue();
                     int mappedPK = Integer.parseInt(rrid);
                     if (this.originalDB.tables[tableNum].nonKeys[mappedPK] != null) {
-                        pw.write(  this.originalDB.tables[tableNum].nonKeys[mappedPK]);
+                        pw.write(this.originalDB.tables[tableNum].nonKeys[mappedPK]);
                     }
                     pw.newLine();
                     count++;
                 }
 
                 pw.close();
-                // tuples.remove(entry.getKey());
+                // tuples.remove(jointDegreeEntry.getKey());
 
                 System.out.println(count + " " + file + "   " + entry.getValue().size());
 
@@ -723,106 +499,42 @@ public class Dscaler {
         }
     }
 
-    private void processBiDegree() {
-        for (Entry<String, ArrayList<ArrayList<ArrayList<Integer>>>> rv : this.originalCoDa.referenceVectors.entrySet()) {
-            String table = rv.getKey();
-            for (Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> joint_degree : this.originalCoDa.mergedDegrees.entrySet()) {
-                if (table.equals(joint_degree.getKey().get(0).sourceTable)) {
-                    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> vmap = new HashMap<>();
-                    HashMap<ArrayList<ArrayList<Integer>>, Integer> map = new HashMap<>();
-                    //ArrayList<ArrayList<ArrayList<Integer>>> kvDegrees = new ArrayList<>();
-
-                    for (int i = 0; i < joint_degree.getValue().size(); i++) {
-                        ArrayList<ArrayList<Integer>> kv = new ArrayList<>();
-                        kv.add(joint_degree.getValue().get(i));
-                        kv.addAll(rv.getValue().get(i));
-
-                        if (!vmap.containsKey(kv)) {
-                            vmap.put(kv, new ArrayList<Integer>());
-                        }
-                        vmap.get(kv).add(i);
-
-                        //   kvDegrees.add(kv);
-                        if (!map.containsKey(kv)) {
-                            map.put(kv, 1);
-                        } else {
-                            map.put(kv, 1 + map.get(kv));
-                        }
-                    }
-                    this.originalCoDa.kvCorrelationDis.put(table, map);
-                    this.originalCoDa.reverseKeyVectors.put(table, vmap);
-                    // this.originalCoDa.keyVectors.put(table, kvDegrees);
-
-                }
-            }
-        }
-
-    }
-
-    private void sortCorrelation(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> tableCorrelationDistribution, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle) {
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> entry : tableCorrelationDistribution.entrySet()) {
-            ParaSort ps = new ParaSort();
-            ps.referencingTable = this.referencingTable;
-            ps.mergedDegreeTitle = mergedDegreeTitle;
-            ps.entry = entry;
-//            ps.sortedCorrs = sortedCorrs;
-            Thread thr = new Thread(ps);
-            liss.add(thr);
-            thr.start();
-        }
-
-        for (Thread thr : liss) {
-            try {
-                thr.join();
-                //   HashMap<ArrayList<Integer>, Integer> correlated= produceCorr(entry.getValue(),arrs);
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-
-    }
+    
     ArrayList<Thread> idthread = new ArrayList<>();
 
     private HashMap<String, ArrayList<ArrayList<Integer>>> assignReferenceTable(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationDistribution,
-            HashMap<String, ArrayList<ComKey>> avaMaps, HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> avaInfo,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseDistribution
-    //        HashMap<String, HashMap<String, ArrayList<String>>> tuples
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs,
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> avaInfo,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseRVDistribution
     ) {
-        HashMap<String, ArrayList<ArrayList<Integer>>> assignIDs = new HashMap<>();
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> entry : scaledCorrelationDistribution.entrySet()) {
-            if (!avaInfo.containsKey(entry.getKey())) {
-                ParaIdAssign para = new ParaIdAssign(entry, scaledCorrelationDistribution, avaMaps, referencingIDs, avaInfo);
-                para.mergedDegreeTitle = this.mergedDegreeTitle;
-                para.reverseDistribution = reverseDistribution;
-                para.scaleTableSize = this.scaleTableSize;
-                para.tableSize = this.tableSize;
-                para.outFile = this.outFile;
-                para.originalDB = this.originalDB;
-                para.referencingTable = this.referencingTable;
-                //   para.tuples = tuples;
-                para.s = this.s;
-
-                Thread thr = new Thread(para);
-                idthread.add(thr);
-                thr.start();
+        HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids = new HashMap<>();
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationEntry : scaledCorrelationDistribution.entrySet()) {
+            if (!avaInfo.containsKey(scaledCorrelationEntry.getKey())) {
+                ParaIdAssign paraIdAssign = new ParaIdAssign(scaledCorrelationEntry, scaledCorrelationDistribution,  avaInfo);
+                paraIdAssign.mergedDegreeTitle = originalDB.mergedDegreeTitle;
+                paraIdAssign.reverseRVDistribution = reverseRVDistribution;
+                paraIdAssign.scaleTableSize = this.scaleTableSize;
+                paraIdAssign.outPath = this.outPath;
+                paraIdAssign.originalDB = this.originalDB;
+                paraIdAssign.referencingTable = originalDB.fkRelation;
+                paraIdAssign.delimiter = this.delimiter;
+                Thread thread=  new Thread(paraIdAssign);
+                idthread.add(thread);
+                thread.start();
             } else {
-
-                ParaKeyIdAssign para1 = new ParaKeyIdAssign(assignIDs, entry, scaledCorrelationDistribution, avaMaps, referencingIDs, avaInfo);
-                para1.mergedDegreeTitle = this.mergedDegreeTitle;
-                para1.reverseDistribution = reverseDistribution;
-                para1.scaleTableSize = this.scaleTableSize;
-                para1.tableSize = this.tableSize;
-                Thread thr = new Thread(para1);
-                liss.add(thr);
-                thr.start();;
-
+                ParaKeyIdAssign paraKeyIdAssign = new ParaKeyIdAssign(rvFKids, scaledCorrelationEntry, scaledCorrelationDistribution, originalDB.fkRelation, referencingIDs, avaInfo);
+                paraKeyIdAssign.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
+                paraKeyIdAssign.reverseDistribution = reverseRVDistribution;
+                paraKeyIdAssign.scaleTableSize = this.scaleTableSize;
+                paraKeyIdAssign.delimiter = this.delimiter ;
+                Thread thread = new Thread(paraKeyIdAssign);
+                threadList.add(thread);
+                thread.start();;
             }
 
         }
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
@@ -830,95 +542,87 @@ public class Dscaler {
             }
         }
 
-        return assignIDs;
+        return rvFKids;
     }
 
-    private HashMap<String, HashMap<Integer, Integer>> matchBiDegree(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs1,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> updatedDegree1,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> biDegreeCorrelation,
+    private HashMap<String, HashMap<Integer, Integer>> matchBiDegree(
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs,
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalKVDis,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs, ArrayList<String> keyTables) {
 
-        HashMap<String, HashMap<Integer, Integer>> ret = new HashMap<>();
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> entry : referencingIDs1.entrySet()) {
-            if (keyTables.contains(entry.getKey())) {
-                ParaMatch pm = new ParaMatch();
-                pm.ret = ret;
-                pm.s = this.scaleTableSize.get(entry.getKey()) * 1.0 / this.oldTableSize.get(entry.getKey());
-                //   pm.referencingIDs = referencingIDs;
-                pm.updatedDegree = updatedDegree1;
-                pm.entry = entry;
-                pm.keyVectorIDs = keyVectorIDs;
-                pm.biDegreeCorrelation = biDegreeCorrelation;
-                Thread thr = new Thread(pm);
-                liss.add(thr);
-                thr.start();
+        HashMap<String, HashMap<Integer, Integer>> scaledBiMap = new HashMap<>();
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVentry : referencingIDs.entrySet()) {
+            if (keyTables.contains(scaledRVentry.getKey())) {
+                ParaMatchKV paraMatchKV = new ParaMatchKV();
+                paraMatchKV.scaledBiMap = scaledBiMap;
+                paraMatchKV.sRatio = this.scaleTableSize.get(scaledRVentry.getKey()) * 1.0 / this.oldTableSize.get(scaledRVentry.getKey());
+                paraMatchKV.srcJDAvaStats = srcJDAvaStats;
+                paraMatchKV.scaledRVentry = scaledRVentry;
+                paraMatchKV.keyVectorIDs = keyVectorIDs;
+                paraMatchKV.originalKVDis = originalKVDis;
+                Thread thread = new Thread(paraMatchKV);
+                threadList.add(thread);
+                thread.start();
             }
         }
 
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
                 Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        return ret;
+        return scaledBiMap;
     }
 
-    private HashMap<String, HashMap<Integer, String>> localequatingMergedIDs(
-            HashMap<String, HashMap<ArrayList<Integer>, AvaStat>> updatedDegree,
+    private void localequatingMergedIDs(
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats,
             HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> reverseMergedDegree,
             ArrayList<String> joinTables) {
-        //     HashMap<String, HashMap<String, ArrayList<String>>> tuples
-        HashMap<String, HashMap<Integer, String>> result = new HashMap<>();
-        ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<Integer>, AvaStat>> entry : updatedDegree.entrySet()) {
-            if (joinTables.contains(entry.getKey())) {
-                System.out.println("Join Table" + " " + entry.getKey());
-                LocalMergeTableGen ljt = new LocalMergeTableGen();
-                ljt.outFile = this.outFile;
-                ljt.s = this.s;
-                ljt.result = result;
-                ljt.entry = entry;
-                ljt.reverseMergedDegree = reverseMergedDegree;
-                ljt.mergedDegreeTitle = this.mergedDegreeTitle;
-                //  ljt.tuples = tuples;
-                ljt.originalDB = this.originalDB;
-                Thread thr = new Thread(ljt);
-                liss.add(thr);
-                thr.start();
+        ArrayList<Thread> threadList = new ArrayList<>();
+        for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry : srcJDAvaStats.entrySet()) {
+            if (joinTables.contains(jdAvaEntry.getKey())) {
+                ParaJoinTableGen joinTableGen = new ParaJoinTableGen();
+                joinTableGen.outPath = this.outPath;
+                joinTableGen.jdAvaEntry = jdAvaEntry;
+                joinTableGen.reverseMergedDegree = reverseMergedDegree;
+                joinTableGen.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
+                joinTableGen.originalDB = this.originalDB;
+                Thread thread = new Thread(joinTableGen);
+                threadList.add(thread);
+                thread.start();
 
             }
         }
-        /*
-         for (Thread thr : liss) {
-         try {
-         thr.join();
-         } catch (InterruptedException ex) {
-         Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-         }
-         }*/
+
+        return ;
+    }
+
+    private HashMap<String, Boolean> convertUniqueness(HashMap<String, String> tableType) {
+        HashMap<String, Boolean> result = new HashMap<>();
+        for (Entry<String, String> entry : tableType.entrySet()) {
+            if (entry.getValue().equals("true")) {
+                result.put(entry.getKey(), true);
+            }
+        }
         return result;
     }
 
-    private void checkSocialGraph() {
-        if (this.originalDB.tableMapping.containsKey("socialgraph")) {
-            int num = this.originalDB.getTableNum("socialgraph");
-            for (int i = 0; i < this.originalDB.tables[num].fks.length; i = i + 2) {
-                int first = this.originalDB.tables[num].fks[i][0];
-                int second = this.originalDB.tables[num].fks[i][1];
-                int first1 = this.originalDB.tables[num].fks[i + 1][0];
-                int second1 = this.originalDB.tables[num].fks[i + 1][1];
-                if (first != second1 || second != first1) {
-                    System.out.println("socialgraph: " + i);
-                    i = i - 1;
-
-                }
-
-            }
-
+    private void computeKeyRefTables(ArrayList<String> keyTables, ArrayList<String> refTables, ArrayList<String> joinTables, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats) {
+      for (String entry : this.scaledCoda.rvDis.keySet()) {
+            refTables.add(entry);
         }
-    }
+
+        for (String table : srcJDAvaStats.keySet()) {
+            if (refTables.contains(table)) {
+                keyTables.add(table);
+                refTables.remove(table);
+            } else {
+                joinTables.add(table);
+            }
+        }}
 
 }

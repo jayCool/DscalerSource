@@ -6,6 +6,7 @@
 
 package dsapara;
 
+import dbstrcture.ComKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -391,7 +392,7 @@ public class Sort {
 
   
 
-    List<Map.Entry<ArrayList<ArrayList<Integer>>, Long>> sortOnKeyAppearance(HashMap<ArrayList<ArrayList<Integer>>, Long> rvs,
+    public List<Map.Entry<ArrayList<ArrayList<Integer>>, Long>> sortOnKeyAppearance(HashMap<ArrayList<ArrayList<Integer>>, Long> rvs,
             final ArrayList<ArrayList<ComKey>> comkeys, HashMap<String, ArrayList<ComKey>> referenceTable, 
             final HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> mergedDistribution) {
     List<Map.Entry<ArrayList<ArrayList<Integer>>, Long>> sorted = new ArrayList<Map.Entry<ArrayList<ArrayList<Integer>>, Long>>(rvs.entrySet());

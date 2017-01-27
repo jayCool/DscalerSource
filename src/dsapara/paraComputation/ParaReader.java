@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package dsapara;
+package dsapara.paraComputation;
 
 import dbstrcture.Table;
 import java.io.BufferedReader;
@@ -94,7 +94,7 @@ public class ParaReader implements Runnable {
             tb.fks = fks;
             tb.nonKeys = nonKeys;
             tb.tableName = table;
-            tb.tuplesize =tableSize; 
+            tb.fkSize =tableSize; 
             tables[this.tableNum] = tb;
             
             oldTableSize.put(table, count);

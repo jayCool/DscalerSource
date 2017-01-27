@@ -5,6 +5,8 @@
  */
 package dsapara;
 
+import dscaler.dataStruct.AvaliableStatistics;
+import dbstrcture.ComKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class LocalJoinTableGen implements Runnable {
 
-    Map.Entry<String, HashMap<ArrayList<Integer>,AvaStat>> entry;
+    Map.Entry<String, HashMap<ArrayList<Integer>,AvaliableStatistics>> entry;
     HashMap<String, HashMap<Integer, String>> result;
     HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<String>>> reverseMergedDegree;
     HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
@@ -63,7 +65,7 @@ public class LocalJoinTableGen implements Runnable {
         //count the frequency of the appeared rrid    
         ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> tempH = new ConcurrentHashMap<>();
         int sum=0;
-        for (Map.Entry<ArrayList<Integer>, AvaStat> entry2 : entry.getValue().entrySet()) {
+        for (Map.Entry<ArrayList<Integer>, AvaliableStatistics> entry2 : entry.getValue().entrySet()) {
             ArrayList<Integer> arr = new ArrayList<>();
             for (int t : entry2.getValue().ids) {
                 arr.add(t);

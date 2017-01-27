@@ -7,8 +7,9 @@ package dbstrcture;
 
 /**
  *
- * @author ZhangJiangwei
+ * @author workshop
  */
-public class IdFeatures {
-    public int[] idcounts;
+public class Configuration {
+    public static final String configFile = "config.txt";
+    public static final String dynamicSFile = "scaleTable.txt";
 }

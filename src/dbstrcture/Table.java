@@ -18,5 +18,5 @@ public class Table {
    public String[] nonKeys;
  
    public String tableName;
-   public int tuplesize; //fk size
+   public int fkSize; //fk size
 }

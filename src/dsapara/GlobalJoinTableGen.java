@@ -5,6 +5,7 @@
  */
 package dsapara;
 
+import dbstrcture.ComKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
