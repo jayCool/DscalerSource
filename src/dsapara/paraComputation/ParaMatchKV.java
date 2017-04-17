@@ -115,9 +115,9 @@ public class ParaMatchKV implements Runnable {
         HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap = calJDSumMap(srcJDAvaStats.get(table).keySet());
 
         int sum = 0;
-        HashMap<Integer, Integer> mapid = new HashMap<>();
-        HashMap<ArrayList<ArrayList<Integer>>, Integer> referIndex = new HashMap<>();
-        HashMap<ArrayList<Integer>, Integer> joinIndex = new HashMap<>();
+        HashMap<Integer, Integer> mapJD2RV = new HashMap<>();
+        HashMap<ArrayList<ArrayList<Integer>>, Integer> rvCandidateIndex = new HashMap<>();
+        HashMap<ArrayList<Integer>, Integer> jdCandidateIndex = new HashMap<>();
 
         while (scaledRVSumMap.size() > 0 && scaledJDSumMap.size() > 0) {
             for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry : originalKVDis.get(table).entrySet()) {
@@ -134,44 +134,47 @@ public class ParaMatchKV implements Runnable {
                     ArrayList<Integer> scaledRVIDs = scaledRVentry.getValue().get(scaleRV);
                     int[] scaledJDIDs = srcJDAvaStats.get(table).get(scaleJD).ids;
 
-                    if (!referIndex.containsKey(scaleRV)) {
-                        referIndex.put(scaleRV, 0);
+                    if (!rvCandidateIndex.containsKey(scaleRV)) {
+                        rvCandidateIndex.put(scaleRV, 0);
                     }
 
-                    if (!joinIndex.containsKey(scaleJD)) {
-                        joinIndex.put(scaleJD, 0);
+                    if (!jdCandidateIndex.containsKey(scaleJD)) {
+                        jdCandidateIndex.put(scaleJD, 0);
                     }
-                    int it = Math.min(scaledRVIDs.size() - referIndex.get(scaleRV), scaledJDIDs.length - joinIndex.get(scaleJD));
+                    
+                    int minFreq = Math.min(scaledRVIDs.size() - rvCandidateIndex.get(scaleRV), 
+                            scaledJDIDs.length - jdCandidateIndex.get(scaleJD));
 
-                    it = Math.min(it, frequency);
-                    ArrayList<ArrayList<Integer>> keyVec = new ArrayList<>();
-                    keyVec.add(scaleJD);
-                    keyVec.addAll(scaleRV);
+                    minFreq = Math.min(minFreq, frequency);
+                    ArrayList<ArrayList<Integer>> scalekeyVec = new ArrayList<>();
+                    scalekeyVec.add(scaleJD);
+                    scalekeyVec.addAll(scaleRV);
 
-                    int refV1 = referIndex.get(scaleRV);
-                    int joinV2 = joinIndex.get(scaleJD);
-                    if (!keyIDs.containsKey(keyVec)) {
-                        keyIDs.put(keyVec, new ArrayList<Integer>());
+                    int rvIndex = rvCandidateIndex.get(scaleRV);
+                    int jdIndex = jdCandidateIndex.get(scaleJD);
+                    if (!keyIDs.containsKey(scalekeyVec)) {
+                        keyIDs.put(scalekeyVec, new ArrayList<Integer>());
                     }
-                    for (int i = 0; i < it; i++) {
+                    for (int i = 0; i < minFreq; i++) {
                         frequency--;
-                        int refid = scaledRVIDs.get(i + refV1);
-                        int mergid = scaledJDIDs[i + joinV2];
-                        mapid.put(mergid, refid);
-                        keyIDs.get(keyVec).add(mergid);
+                        int rvID = scaledRVIDs.get(i + rvIndex);
+                        int jdID = scaledJDIDs[i + jdIndex];
+                        mapJD2RV.put(jdID, rvID);
+                        keyIDs.get(scalekeyVec).add(jdID);
                         sum++;
                     }
-                    referIndex.put(scaleRV, it + refV1);
-                    joinIndex.put(scaleJD, it + joinV2);
+                    
+                    rvCandidateIndex.put(scaleRV, minFreq + rvIndex);
+                    jdCandidateIndex.put(scaleJD, minFreq + jdIndex);
 
-                    if (scaledRVIDs.size() == (it + refV1)) {
+                    if (scaledRVIDs.size() == (minFreq + rvIndex)) {
                         scaledRVSumMap.get(rvKeySum).remove(scaleRV);
                         if (scaledRVSumMap.get(rvKeySum).size() == 0) {
                             scaledRVSumMap.remove(rvKeySum);
                         }
                     }
 
-                    if (scaledJDIDs.length == (it + joinV2)) {
+                    if (scaledJDIDs.length == (minFreq + jdIndex)) {
                         scaledJDSumMap.get(jdKeySum).remove(scaleJD);
                         if (scaledJDSumMap.get(jdKeySum).size() == 0) {
                             scaledJDSumMap.remove(jdKeySum);
@@ -181,9 +184,9 @@ public class ParaMatchKV implements Runnable {
 
             }
         }
-        System.out.println("sum:" + sum);
+    //   System.out.println("sum:" + sum);
         this.keyVectorIDs.put(table, keyIDs);
-        scaledBiMap.put(table, mapid);
+        scaledBiMap.put(table, mapJD2RV);
     }
 
     private int calJDSum(ArrayList<Integer> jointDegree) {

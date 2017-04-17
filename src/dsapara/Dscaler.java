@@ -315,7 +315,8 @@ public class Dscaler {
         }
         this.originalCoDa.dropKVDis(); 
         System.out.println("====================Localized Key IDs==========================");
-        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs, this.originalCoDa.reverseKV, keyTables);
+        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs, 
+                this.originalCoDa.reverseKV, keyTables);
         keyVectorIDs = null;
         //reverseKeyDistribution = null;
         this.originalCoDa.reverseKV = null;
@@ -362,17 +363,18 @@ public class Dscaler {
 
     int indexcount = 0;
 
-    private HashMap<String, HashMap<Integer, Integer>> localequatingIDs(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseDistribution,
+    private HashMap<String, HashMap<Integer, Integer>> localequatingIDs(
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV,
             ArrayList<String> refTables) {
         HashMap<String, HashMap<Integer, Integer>> result = new HashMap<>();
         ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> entry : referencingIDs.entrySet()) {
-            if (!entry.getKey().equals("socialgraph") && refTables.contains(entry.getKey())) {
+        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> kvIDentry : keyVectorIDs.entrySet()) {
+            if (!eveNum && refTables.contains(kvIDentry.getKey())) {
                 LocalRefTableGen lft = new LocalRefTableGen();
                 lft.result = result;
-                lft.reverseDistribution = reverseDistribution;
-                lft.entry = entry;
+                lft.reverseKV = reverseKV;
+                lft.kvIDentry = kvIDentry;
                 Thread thr = new Thread(lft);
                 liss.add(thr);
                 thr.start();

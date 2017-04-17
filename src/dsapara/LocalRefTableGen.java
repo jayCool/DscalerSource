@@ -18,46 +18,36 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class LocalRefTableGen implements Runnable {
 
-    HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseDistribution;
+    HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV;
     HashMap<String, HashMap<Integer, Integer>> result;
-    Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> entry;
-    HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> mapping = new HashMap<>();
+    Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> kvIDentry;
+    HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> sum2KVmap = new HashMap<>();
 
     @Override
     public void run() {
-        sortDis(reverseDistribution.get(entry.getKey()).keySet());
-        ArrayList<ArrayList<Integer>> calDeg = new ArrayList<>();
+        sortDis(reverseKV.get(kvIDentry.getKey()).keySet());
+        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> conKVIDEntry = createConCurrent();
+      
         HashMap<Integer, Integer> mmap = new HashMap<>();
-        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> tempH = new ConcurrentHashMap<>();
-        int total = 0;
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> entry2 : entry.getValue().entrySet()) {
-            ArrayList<Integer> arr = new ArrayList<>();
-            for (int t : entry2.getValue()) {
-                arr.add(t);
-                total++;
-            }
-            if (arr.size() > 0) {
-                tempH.put(entry2.getKey(), arr);
-            }
-        }
-
+       ArrayList<ArrayList<Integer>> calDeg = new ArrayList<>();
+        
         int level = 0;
         int sum = 0;
-        System.out.println(entry.getKey());
-        while (tempH.keySet().size() > 0) {
+        //System.out.println(kvIDentry.getKey());
+        while (conKVIDEntry.keySet().size() > 0) {
 
-            for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> entry2 : tempH.entrySet()) {
+            for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> entry2 : conKVIDEntry.entrySet()) {
                 int leftOver = entry2.getValue().size();
                 if (leftOver == 0) {
-                    tempH.remove(entry2.getKey());
+                    conKVIDEntry.remove(entry2.getKey());
                     continue;
                 }
                 if (level == 0) {
                     calDeg = entry2.getKey();
-                    if (reverseDistribution.get(entry.getKey()).containsKey(calDeg) && reverseDistribution.get(entry.getKey()).get(calDeg).size() > 0) {
-                        int size = reverseDistribution.get(entry.getKey()).get(calDeg).size();
+                    if (reverseKV.get(kvIDentry.getKey()).containsKey(calDeg) && reverseKV.get(kvIDentry.getKey()).get(calDeg).size() > 0) {
+                        int size = reverseKV.get(kvIDentry.getKey()).get(calDeg).size();
                         ArrayList<Integer> oldIDs = new ArrayList<>();
-                        for (int i : reverseDistribution.get(entry.getKey()).get(calDeg)) {
+                        for (int i : reverseKV.get(kvIDentry.getKey()).get(calDeg)) {
                             oldIDs.add(i);
                         }
                         Collections.shuffle(oldIDs);
@@ -65,24 +55,24 @@ public class LocalRefTableGen implements Runnable {
                             mmap.put(entry2.getValue().get(i), oldIDs.get(i % size));
                         }
                         sum += leftOver;
-                        tempH.remove(entry2.getKey());
+                        conKVIDEntry.remove(entry2.getKey());
                     }
                 } else {
                    
-                    if (reverseDistribution.get(entry.getKey()).containsKey(entry2.getKey())) {
+                    if (reverseKV.get(kvIDentry.getKey()).containsKey(entry2.getKey())) {
                         calDeg = entry2.getKey();
                     } else {
                         calDeg = nearestSum(entry2.getKey());
                     }
 
                     boolean check = false;
-                    while (reverseDistribution.get(entry.getKey()).get(calDeg).size() == 0) {
-                        reverseDistribution.get(entry.getKey()).remove(calDeg);
+                    while (reverseKV.get(kvIDentry.getKey()).get(calDeg).size() == 0) {
+                        reverseKV.get(kvIDentry.getKey()).remove(calDeg);
                         int sum1 = 0;
                         sum1 = getSum(calDeg);
-                        mapping.get(sum1).remove(calDeg);
-                        if (mapping.get(sum1).size() == 0) {
-                            mapping.remove(sum1);
+                        sum2KVmap.get(sum1).remove(calDeg);
+                        if (sum2KVmap.get(sum1).size() == 0) {
+                            sum2KVmap.remove(sum1);
                         }
                         check = true;
                         break;
@@ -91,10 +81,10 @@ public class LocalRefTableGen implements Runnable {
                     if (check) {
                         continue;
                     }
-                    int size = reverseDistribution.get(entry.getKey()).get(calDeg).size();
+                    int size = reverseKV.get(kvIDentry.getKey()).get(calDeg).size();
 
                     ArrayList<Integer> oldIDs = new ArrayList<>();
-                    for (int i : reverseDistribution.get(entry.getKey()).get(calDeg)) {
+                    for (int i : reverseKV.get(kvIDentry.getKey()).get(calDeg)) {
                         oldIDs.add(i);
                     }
                     Collections.shuffle(oldIDs);
@@ -102,14 +92,14 @@ public class LocalRefTableGen implements Runnable {
                         mmap.put(entry2.getValue().get(i), oldIDs.get(i % size));
                     }
                     sum += leftOver;
-                    tempH.remove(entry2.getKey());
+                    conKVIDEntry.remove(entry2.getKey());
                 }
             }
             level++;
         }
-        System.out.println(entry.getKey() + " DONE  " + sum);
-        reverseDistribution.remove(entry.getKey());
-        result.put(entry.getKey(), mmap);
+        System.out.println(kvIDentry.getKey() + " DONE  " + sum);
+        reverseKV.remove(kvIDentry.getKey());
+        result.put(kvIDentry.getKey(), mmap);
     }
 
     private ArrayList<ArrayList<ArrayList<Integer>>> l1Norm2Sets(ArrayList<ArrayList<Integer>> key, Set<ArrayList<ArrayList<Integer>>> keySet) {
@@ -148,19 +138,19 @@ public class LocalRefTableGen implements Runnable {
         return result;
     }
 
-    private void sortDis(Set<ArrayList<ArrayList<Integer>>> keySet) {
+    private void sortDis(Set<ArrayList<ArrayList<Integer>>> kvSet) {
 
-        for (ArrayList<ArrayList<Integer>> arr : keySet) {
+        for (ArrayList<ArrayList<Integer>> kv : kvSet) {
             int sum = 0;
-            for (ArrayList<Integer> karr : arr) {
-                for (int i : karr) {
-                    sum += i;
+            for (ArrayList<Integer> jointDegree : kv) {
+                for (int degree : jointDegree) {
+                    sum += degree;
                 }
             }
-            if (!mapping.containsKey(sum)) {
-                mapping.put(sum, new ArrayList<ArrayList<ArrayList<Integer>>>());
+            if (!sum2KVmap.containsKey(sum)) {
+                sum2KVmap.put(sum, new ArrayList<ArrayList<ArrayList<Integer>>>());
             }
-            mapping.get(sum).add(arr);
+            sum2KVmap.get(sum).add(kv);
         }
 
     }
@@ -169,19 +159,19 @@ public class LocalRefTableGen implements Runnable {
         int sum1 = getSum(key);
 
         for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (mapping.containsKey(sum1 + i)) {
-                int size = mapping.get(sum1 + i).size();
+            if (sum2KVmap.containsKey(sum1 + i)) {
+                int size = sum2KVmap.get(sum1 + i).size();
                 if (size == 0) {
-                    mapping.remove(sum1 + i);
+                    sum2KVmap.remove(sum1 + i);
                 } else {
                     int can = (int) (Math.random() * (size - 1) + 0.45);
-                    return mapping.get(sum1 + i).get(can);
+                    return sum2KVmap.get(sum1 + i).get(can);
                 }
             }
-            if (mapping.containsKey(sum1 - i)) {
-                int size = mapping.get(sum1 - i).size();
+            if (sum2KVmap.containsKey(sum1 - i)) {
+                int size = sum2KVmap.get(sum1 - i).size();
                 int can = (int) (Math.random() * (size - 1) + 0.45);
-                return mapping.get(sum1 - i).get(can);
+                return sum2KVmap.get(sum1 - i).get(can);
             }
         }
         return null;
@@ -195,5 +185,20 @@ public class LocalRefTableGen implements Runnable {
             }
         }
         return sum1;
+    }
+
+    private ConcurrentHashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> createConCurrent() {
+      ConcurrentHashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> conKVIDEntry = new ConcurrentHashMap<>();
+       
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> entry : kvIDentry.getValue().entrySet()) {
+            ArrayList<Integer> idList = new ArrayList<>();
+            for (int t : entry.getValue()) {
+                idList.add(t);
+            }
+            if (idList.size() > 0) {
+                conKVIDEntry.put(entry.getKey(), idList);
+            }
+        }
+    return conKVIDEntry;
     }
 }
