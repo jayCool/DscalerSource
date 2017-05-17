@@ -58,7 +58,7 @@ public class DataProcess {
         PrintWriter pw2 = new PrintWriter(new File(file + "clean"));
         PrintWriter pw = new PrintWriter(new File(file + "null"));
         int size = s.split("\\s+").length;
-        System.out.println(size);
+       // System.out.println(size);
         while (s != null) {
             String temp[] = s.split("\\s+");
             //    System.out.println(temp.length);
@@ -92,7 +92,7 @@ public class DataProcess {
         String s = bf.readLine();
         PrintWriter pw2 = new PrintWriter(new File(file + "processed"));
         int size = s.split("\\s+").length;
-        System.out.println(size);
+     //   System.out.println(size);
         int id = 0;
         while (s != null) {
             String temp[] = s.split("\\s+");

@@ -27,6 +27,7 @@ public class ParaJoinTableGen implements Runnable {
     public HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
     public String outPath;
     public DB originalDB;
+    public String delimiter;
 
     private ArrayList<ArrayList<Integer>> closestDegreeSets(ArrayList<Integer> jd, Set<ArrayList<Integer>> jdSets) {
         int maxAbsError = 0;
@@ -62,6 +63,7 @@ public class ParaJoinTableGen implements Runnable {
 
         BufferedWriter pw = null;
         try {
+            System.err.println("jdAvaEntry.getKey():" + jdAvaEntry.getKey());
             File file = new File(outPath + "/" + jdAvaEntry.getKey() + ".txt");
             pw = new BufferedWriter(new FileWriter(file), 100000);
             ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> conJDAvaEntry = new ConcurrentHashMap<>();
@@ -140,7 +142,7 @@ public class ParaJoinTableGen implements Runnable {
                 pw.write("" + jdEntry.getValue().get(i));
                 int pkidNum = oldIDs.get(i % size);
                 if (this.originalDB.tables[tableNum].nonKeys[pkidNum] != null) {
-                    pw.write("|" + this.originalDB.tables[tableNum].nonKeys[pkidNum]);
+                    pw.write(delimiter + this.originalDB.tables[tableNum].nonKeys[pkidNum].trim());
                 }
                 pw.newLine();
 

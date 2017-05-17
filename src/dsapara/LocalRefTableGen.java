@@ -97,7 +97,7 @@ public class LocalRefTableGen implements Runnable {
             }
             level++;
         }
-        System.out.println(kvIDentry.getKey() + " DONE  " + sum);
+      //  System.out.println(kvIDentry.getKey() + " DONE  " + sum);
         reverseKV.remove(kvIDentry.getKey());
         result.put(kvIDentry.getKey(), mmap);
     }

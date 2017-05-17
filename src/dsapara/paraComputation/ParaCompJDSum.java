@@ -31,14 +31,14 @@ boolean terminated=false;
     }
     @Override
     public void run() {
-            System.out.println(ck);
+         //   System.out.println(ck);
             HashMap<Integer, ArrayList<ArrayList<Integer>>> temp = this.sumKeyDegrees(srcJDAvaStatsEntry.getValue().keySet());
            this.distanceMap.put(ck,temp ); 
            terminated=true;
     }
     
     public void singlerun() {
-            System.out.println(ck);
+          //  System.out.println(ck);
             HashMap<Integer, ArrayList<ArrayList<Integer>>> sumDistance = this.sumKeyDegrees(srcJDAvaStatsEntry.getValue().keySet());
            this.distanceMap.put(ck,sumDistance ); 
            terminated=true;

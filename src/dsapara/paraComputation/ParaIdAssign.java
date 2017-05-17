@@ -153,6 +153,10 @@ public class ParaIdAssign implements Runnable {
 
     private void twoKeyGen(Entry<ArrayList<ArrayList<Integer>>, Integer> scaledCorrelationPair, BufferedWriter pw) throws IOException {
         int frequency = scaledCorrelationPair.getValue();
+        System.err.println("avaInfo: " + avaInfo);
+        System.err.println("firstCK.sourceTable: " + firstCK.sourceTable);
+        System.err.println("scaledCorrelationPair.getKey()" + scaledCorrelationPair.getKey());
+        
         int queue1Length = this.avaInfo.get(firstCK.sourceTable).get(scaledCorrelationPair.getKey().get(0)).ids.length;
         int fk1StartingIndex = this.avaInfo.get(firstCK.sourceTable).get(scaledCorrelationPair.getKey().get(0)).start[firstSourceTableIndex];
 

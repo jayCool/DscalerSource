@@ -47,7 +47,7 @@ public class DB {
     
     
     public void loadMap( String input) throws FileNotFoundException {
-        Scanner scanner = new Scanner(new File(input + "/config.txt"));
+        Scanner scanner = new Scanner(new File(input));
         while (scanner.hasNext()) {
             String[] splits = scanner.nextLine().trim().split("\\s+");
             int num = Integer.parseInt(splits[1]);

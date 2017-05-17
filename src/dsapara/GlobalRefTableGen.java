@@ -59,7 +59,7 @@ public class GlobalRefTableGen implements Runnable {
                 }
             }
         }
-        System.out.println("NULL");
+       // System.out.println("NULL");
         return null;
     }
     HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> mapping = new HashMap<>();
@@ -139,7 +139,7 @@ public class GlobalRefTableGen implements Runnable {
         if (staticUp) {
             HashMap<Integer, String> map = new HashMap<>();
             ArrayList<Thread> liss = new ArrayList<>();
-            System.out.println(table);
+          //  System.out.println(table);
             for (int i = 0; i < 10; i++) {
                 StaticUpGlobalRefTableGen sug = new StaticUpGlobalRefTableGen();
                 sug.countH = countH;
@@ -167,7 +167,7 @@ public class GlobalRefTableGen implements Runnable {
                 }
             }
             result.put(table, map);
-            System.out.println(table);
+       //     System.out.println(table);
         } else {
 
             while (indexes.size() > 0) {
@@ -189,7 +189,7 @@ public class GlobalRefTableGen implements Runnable {
                             produceValueShort(countL, countH, mmap, indexes, pos, tempKey.get(pos), entrySize, reverseids.get(pos), referenceids.get(pos));
                         }
                     } else {
-                        System.out.println("Error");
+                 //       System.out.println("Error");
                         calDegs = nearestSum(tempKey.get(pos));
                         while (leftOver > 0) {
                             if (calDegs.size() == 0) {
@@ -216,7 +216,7 @@ public class GlobalRefTableGen implements Runnable {
                 }
                 level++;
             }
-            System.out.println(table + "   " + sum);
+      //      System.out.println(table + "   " + sum);
             result.put(table, mmap);
         }
     }

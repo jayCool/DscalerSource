@@ -49,7 +49,7 @@ public class StaticUpGlobalRefTableGen implements Runnable {
                 produceValueShort(countL, countH, mmap, indexes, pos, entrySize, reverseids.get(pos), referenceids.get(pos));
          
         }
-        System.out.println("Out");
+     //   System.out.println("Out");
     }
 
     private void produceValueShort(int[] countL, int[] countH, HashMap<Integer, String> mmap, ArrayList<Integer> indexes, int pos,

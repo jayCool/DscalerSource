@@ -73,7 +73,7 @@ public class LocalJoinTableGen implements Runnable {
             sum += entry2.getValue().ids.length;
             tempH.put(entry2.getKey(), arr);
         }
-        System.out.println(entry.getKey() + "  " + sum);
+        //System.out.println(entry.getKey() + "  " + sum);
         int level = 0;
         while (tempH.keySet().size() > 0) {
 

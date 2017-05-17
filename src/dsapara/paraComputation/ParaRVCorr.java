@@ -88,7 +88,7 @@ public class ParaRVCorr implements Runnable {
         }
 
         iteration = 5;
-
+        
         if (sortedRV.get(0).getKey().size() == 2) {
             if (checkAvaCoutsNotEmpty()) {
                 randomRoundEffiTwoKey(scaledRVDis);
@@ -106,7 +106,10 @@ public class ParaRVCorr implements Runnable {
                 randomSwapEffi(scaledRVDis);
             }
         }
+        
         if (checkAvaCoutsNotEmpty()) {
+            
+            System.err.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
             System.err.println(this.curTable + ": is not empty!");
         }
 
@@ -230,6 +233,18 @@ public class ParaRVCorr implements Runnable {
     }
 
     private boolean checkAvaCoutsNotEmpty() {
+        for (ComKey ck: referenceTable.get(this.curTable)){
+            ArrayList<ArrayList<Integer>> zeroKeys = new ArrayList<>();
+            for (ArrayList<Integer> key: ckJDAvaCounts.get(ck).keySet()){
+                if (ckJDAvaCounts.get(ck).get(key) == 0
+                        ){
+                    zeroKeys.add(key);
+                }
+            }
+            for (ArrayList<Integer> key: zeroKeys){
+                ckJDAvaCounts.get(ck).remove(key);
+            }
+        }
         return ckJDAvaCounts.containsKey(this.referenceTable.get(this.curTable).get(0)) && !ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)).isEmpty();
     }
 

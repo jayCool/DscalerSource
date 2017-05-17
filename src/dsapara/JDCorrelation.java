@@ -57,8 +57,6 @@ public class JDCorrelation extends PrintFunction implements Runnable {
                 arr.add(entry.getKey().get(i));
                 arrs.add(downsizedCounts.get(arr));
             }
-            //      System.out.println("start");
-            //      System.out.println(degree.getKey());
             HashMap<ArrayList<Integer>, Integer> correlated = jointDegreeCorr(entry.getValue(), arrs);
             result.put(entry.getKey(), correlated);
             //   System.out.println("end");
@@ -69,10 +67,12 @@ public class JDCorrelation extends PrintFunction implements Runnable {
 
     private HashMap<ArrayList<Integer>, Integer> jointDegreeCorr(HashMap<ArrayList<Integer>, Integer> originalJDDis,
             ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
+        //System.err.println("scaledIdFreqs: "+ scaledIdFreqs);
         HashMap<ArrayList<Integer>, Integer> scaledOneJDDis = correlation(originalJDDis, scaledIdFreqs);
         iterations++;
 
         while (!scaledIdFreqs.get(0).keySet().isEmpty()) {
+            //System.err.println("iteration one" + iterations);
             HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis = correlation(originalJDDis, scaledIdFreqs);
             mergeExtraJDDis(extraScaledOneJDDis, scaledOneJDDis);
         }
@@ -107,6 +107,8 @@ public class JDCorrelation extends PrintFunction implements Runnable {
             for (int j = 0; j < calJDs.size() && frequency > 0; j++) {
                 frequency = Math.min(frequency, scaledIdFreqs.get(j).get(calJDs.get(j)));
             }
+            //System.err.println("scaledIdFreqs: " + scaledIdFreqs + "\t" + frequency);
+
             if (frequency <= 0) {
                 continue;
             }
@@ -118,6 +120,7 @@ public class JDCorrelation extends PrintFunction implements Runnable {
             }
 
         }
+        clearEmptyScaleIDFreq(scaledIdFreqs);
         return scaledOneJDDis;
     }
 
@@ -163,8 +166,7 @@ public class JDCorrelation extends PrintFunction implements Runnable {
     }
 
     private ArrayList<Integer> calJointDegrees(Entry<ArrayList<Integer>, Integer> jdFreqEntry,
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
-        ArrayList<Integer> calJDs = new ArrayList<>();
+            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, ArrayList<Integer> calJDs) {
 
         for (int j = 0; j < jdFreqEntry.getKey().size(); j++) {
             if (scaledIdFreqs.get(j).keySet().size() == 0) {
@@ -203,6 +205,9 @@ public class JDCorrelation extends PrintFunction implements Runnable {
 
     private void clearEmptyScaleIDFreq(ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
         for (int i = 0; i < scaledIdFreqs.size(); i++) {
+            if (scaledIdFreqs.get(i)==null){
+                continue;
+            }
             ArrayList<Integer> keySetCopy = new ArrayList<Integer>(scaledIdFreqs.get(i).keySet());
             for (int degree : keySetCopy) {
                 if (scaledIdFreqs.get(i).get(degree) == 0) {
@@ -216,29 +221,33 @@ public class JDCorrelation extends PrintFunction implements Runnable {
         boolean notfound = false;
         if (iterations == 0) {
             notfound = checkNotFound(jdFreqEntry, scaledIdFreqs);
-            calJDs = jdFreqEntry.getKey();
+            for (int i : jdFreqEntry.getKey()) {
+                calJDs.add(i);
+            }
         } else {
-            calJDs = calJointDegrees(jdFreqEntry, scaledIdFreqs);
+            calJointDegrees(jdFreqEntry, scaledIdFreqs, calJDs);
         }
         return notfound;
     }
 
     private boolean updateDistributions(ArrayList<Integer> calJDs, ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, HashMap<ArrayList<Integer>, Integer> scaledOneJDDis, int frequency) {
         int newBudget = 0;
+        boolean cleanning = false;
         for (int j = 0; j < calJDs.size(); j++) {
             int totalBudget = scaledIdFreqs.get(j).get(calJDs.get(j));
             newBudget = totalBudget - frequency;
             scaledIdFreqs.get(j).put(calJDs.get(j), newBudget);
             if (newBudget == 0) {
-                return true;
+                cleanning = true;
             }
         }
+        //System.err.println("scaledIdFreqs:" + scaledIdFreqs);
 
         if (!scaledOneJDDis.containsKey(calJDs)) {
             scaledOneJDDis.put(calJDs, 0);
         }
         scaledOneJDDis.put(calJDs, frequency + scaledOneJDDis.get(calJDs));
-        return false;
+        return cleanning;
     }
 
     private void cleanZeroBudgetDis(ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, ArrayList<Integer> calJDs) {

@@ -69,7 +69,7 @@ public class DegreeScaler implements Runnable {
         }
         TreeMap<Integer, Integer> map1 = new TreeMap<>(orders);
         TreeMap<Integer, Integer> map2 = new TreeMap<>(smoothDegree);
-        System.out.println(this.key + "DS-statistics: " + this.getDStatistics(map2, map1));
+        //System.out.println(this.key + "DS-statistics: " + this.getDStatistics(map2, map1));
         return smoothDegree;
     }
     HashMap<Integer, ArrayList<Integer>> map = new HashMap<>();
@@ -92,7 +92,7 @@ public class DegreeScaler implements Runnable {
             x.add(i);
         }
 
-        System.out.println("X size: " + x.size() + "   " + this.key);
+       // System.out.println("X size: " + x.size() + "   " + this.key);
 
         /*if (x.size() == 1) {
          for (int i = 0; i < x.get(x.size() - 1); i++) {
@@ -107,10 +107,10 @@ public class DegreeScaler implements Runnable {
         int vtex = this.sumVector(value);
         int diffs = sourceAfter - vtex;
         if (Collections.min(value) < 0) {
-            System.out.print("Downsize Adjustment: " + value);
+        //    System.out.print("Downsize Adjustment: " + value);
         }
 
-        System.out.println(key + "===================node adjust" + diffs + "=====================");
+        //System.out.println(key + "===================node adjust" + diffs + "=====================");
 
         for (int i = 0; i <= 5 && i < x.size() & diffs != 0; i++) {
             double rati = (int) 1.0 * value.get(i) / vtex;
@@ -130,7 +130,7 @@ public class DegreeScaler implements Runnable {
         vtex = this.sumVector(value);
         diffs = sourceAfter - vtex;
 
-        System.out.println("value check: " + diffs);
+       // System.out.println("value check: " + diffs);
         int kk = 0;
 
         while (diffs != 0) {
@@ -142,11 +142,11 @@ public class DegreeScaler implements Runnable {
             vtex = this.sumVector(value);
             diffs = sourceAfter - vtex;
         }
-        System.out.println(key + "=================nodeAdjustment1 done" + diffs + "======================");
+      //  System.out.println(key + "=================nodeAdjustment1 done" + diffs + "======================");
 
         int products = product(x, value);
-        System.out.println(value);
-        System.out.println(this.key + "products: " + products + " dependAfter: " + dependAfter);
+      //  System.out.println(value);
+      //  System.out.println(this.key + "products: " + products + " dependAfter: " + dependAfter);
         int diff = products - dependAfter;
         int sign = 1;
         boolean flag = true;
@@ -165,7 +165,7 @@ public class DegreeScaler implements Runnable {
 
         products = product(x, value);
         diff = dependAfter - products;
-        System.out.println(this.key + "   " + (1.0 * dependAfter / products));
+       // System.out.println(this.key + "   " + (1.0 * dependAfter / products));
         if ((1.0 * dependAfter / products) > 1.1 && diff > 0) {
             int largest = x.get(x.size() - 1);
             for (int i = largest + 1; i < largest * (1.0 * dependAfter / products); i++) {
@@ -174,9 +174,9 @@ public class DegreeScaler implements Runnable {
             }
         }
 
-        System.out.println(key + "   adjusted size: " + x.size());
+      //  System.out.println(key + "   adjusted size: " + x.size());
         if (Collections.min(value) < 0) {
-            System.out.print("Node Adjustment: " + value);
+     //       System.out.print("Node Adjustment: " + value);
         }
 
         map = this.maximumRange(x, value, diff);
@@ -184,7 +184,7 @@ public class DegreeScaler implements Runnable {
         diff = smoothingLoop(diff, value, x);
 
         products = product(x, value);
-        System.out.println(this.key + "   Before: " + products);
+     //   System.out.println(this.key + "   Before: " + products);
         if (diff != 0) {
             ArrayList<Integer> arr = map.get(diff);
             value.set(arr.get(0), value.get(arr.get(0)) - 1);
@@ -192,7 +192,7 @@ public class DegreeScaler implements Runnable {
         }
 
         products = product(x, value);
-        System.out.println(this.key + "   After: " + products);
+   //     System.out.println(this.key + "   After: " + products);
         products = product(x, value);
         HashMap<Integer, Integer> res = new HashMap<>();
         for (int i = 0; i < x.size(); i++) {
@@ -200,7 +200,7 @@ public class DegreeScaler implements Runnable {
         }
         this.calSourceAfter = sumVector(value);
 
-        System.out.println(this.key + "===============Tuple Adjustment 3 Done=========================" + products);
+    //    System.out.println(this.key + "===============Tuple Adjustment 3 Done=========================" + products);
         return res;
     }
 
@@ -298,8 +298,8 @@ public class DegreeScaler implements Runnable {
             }
         }
 
-        System.out.println("original: " + orders);
-        System.out.println("simple scaled: " + results);
+       //System. out.println("original: " + orders);
+      //  System.out.println("simple scaled: " + results);
 
         if (this.s < 1) {
             Collections.sort(resultsa);
@@ -315,7 +315,7 @@ public class DegreeScaler implements Runnable {
             }
         }
 
-        System.out.println(this.key + "after: " + sourceAfter + " " + dependAfter);
+       // System.out.println(this.key + "after: " + sourceAfter + " " + dependAfter);
         untouched = 0;
         return results;
     }
@@ -539,7 +539,7 @@ public class DegreeScaler implements Runnable {
         int loop = 0;
         while (!map.containsKey(diff) && diff != 0) {
             if (loop % 1000 == 0) {
-                System.out.println(this.key + "    leftOver: " + diff);
+           //     System.out.println(this.key + "    leftOver: " + diff);
                 loop = 0;
                 int products = product(x, value);
                 diff = dependAfter - products;
@@ -651,7 +651,7 @@ public class DegreeScaler implements Runnable {
         }
 
         if (Collections.min(value) < 0) {
-            System.out.print("Cut: " + value);
+        //    System.out.print("Cut: " + value);
         }
         int products = product(x, value);
         diff = dependAfter - products;
@@ -698,7 +698,7 @@ public class DegreeScaler implements Runnable {
         }
 
         if (Collections.min(value) < 0) {
-            System.out.print("Index Expand: " + value);
+          //  System.out.print("Index Expand: " + value);
         }
         return diff;
     }
@@ -761,7 +761,7 @@ public class DegreeScaler implements Runnable {
         }
 
         if (Collections.min(value) < 0) {
-            System.out.print("Two way: " + value);
+        //    System.out.print("Two way: " + value);
         }
         return diff;
     }

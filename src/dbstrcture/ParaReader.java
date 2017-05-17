@@ -68,9 +68,9 @@ public class ParaReader implements Runnable {
                 String nonkey = "";
                 for (int i = this.fkSize + 1; i < leng; i++) {
                     if (st.hasMoreTokens()) {
-                        nonkey += "\t" + st.nextToken();
+                        nonkey += delim + st.nextToken();
                     } else {
-                        nonkey += "\t" + "null";
+                        nonkey += delim+ "null";
                     }
                 }
                 nonKeys[t] = nonkey.trim();
@@ -84,7 +84,7 @@ public class ParaReader implements Runnable {
             tb.fkSize = fkSize;
             tables[this.tableNum] = tb;
             tables[this.tableNum].tableName = this.table;
-            System.out.println("Mem=====" + table + "   " + count + "    " + delim + "    " + leng + "  " + "====");
+            //System.out.println("Mem=====" + table + "   " + count + "    " + delim + "    " + leng + "  " + "====");
 
             scanner.close();
             scanner = null;

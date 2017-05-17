@@ -81,11 +81,11 @@ public class Dscaler {
 
             while (scanner.hasNext()) {
                 String[] splits = scanner.nextLine().trim().split("\\s+");
-                System.out.println(splits.toString());
+                //System.out.println(splits.toString());
                 map.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
             }
         } else {
-            for (Entry<String, Integer> entry : this.oldTableSize.entrySet()) {
+            for (Entry<String, Integer> entry : this.originalDB.tableSize.entrySet()) {
                 map.put(entry.getKey(), (int) (entry.getValue() * this.staticS));
             }
         }
@@ -95,7 +95,7 @@ public class Dscaler {
     public static void main(String[] args) throws FileNotFoundException, IOException {
         Dscaler fsq = new Dscaler();
         fsq.parseParameter(args);
-        fsq.run();
+       // fsq.run();
     }
 
     private void parseParameter(String[] args) throws FileNotFoundException {
@@ -104,7 +104,10 @@ public class Dscaler {
             parser.parseArgument(args);
             if (!filePath.isEmpty() && !outPath.isEmpty()) {
                 Dscaler fsq = new Dscaler();
-                fsq.delimiter  = delimiter ;
+                if (delimiter.equals("t")){
+                    delimiter = "\t";
+                }
+                fsq.delimiter  = delimiter;
                 fsq.ignoreFirst = ignoreFirst;
                 fsq.dynamicSFile = dynamicSFile;
                 fsq.filePath = filePath;
@@ -118,17 +121,12 @@ public class Dscaler {
             }
 
         } catch (CmdLineException e) {
-            System.err.println(e.getMessage());
-            System.err.println("java SampleMain [options...] arguments...");
-            parser.printUsage(System.err);
-            System.err.println();
             System.err.println("  Example: java SampleMain" + parser.printExample(ALL));
             return;
         }
     }
 
-    private HashMap<String, Integer> oldTableSize = new HashMap<>();
-
+    
     public Dscaler(String string) {
         filePath = string;
     }
@@ -169,18 +167,29 @@ public class Dscaler {
     private void scaleDistribution()
             throws FileNotFoundException {
         ArrayList<Thread> arr = new ArrayList<>();
+        int min = Integer.MAX_VALUE;
+           for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.idFreqDis.entrySet()) {
+            min = Math.min(min,entry.getValue().size());
+           }
         for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.idFreqDis.entrySet()) {
             ComKey key = entry.getKey();
             String sourceTable = key.sourceTable;
             String dependTable = key.referencingTable;
             DegreeScaler degreeScaler = new DegreeScaler(this.scaledCoda.idFreqDis, scaleCounts, key, entry.getValue());
-            degreeScaler.s = 1.0 * this.scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable);
+            
+            degreeScaler.s = 1.0 * this.scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable);;
             degreeScaler.dependAfter = this.scaleTableSize.get(dependTable);
             degreeScaler.sourceAfter = this.scaleTableSize.get(sourceTable);
-            Thread thr = new Thread(degreeScaler);
-            arr.add(thr);
-
+            if (min < 50){
+                degreeScaler.run();
+            } else {
+                Thread thr = new Thread(degreeScaler);
+                arr.add(thr);
+            }
         }
+        
+        
+        
         for (Thread thr : arr) {
             thr.start();
         }
@@ -188,10 +197,12 @@ public class Dscaler {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
+                System.err.println("ex: " +ex);
                 Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-
+       
+      //  System.err.println("scaledCoda.idFreqDis: " + scaledCoda.idFreqDis + "\t" + originalCoDa.idFreqDis);
     }
 
     HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> correlateRV(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
@@ -224,7 +235,7 @@ public class Dscaler {
 
             paraRVCorr.originalCoDa = this.originalCoDa;
             paraRVCorr.eveNum = eveNum;
-            paraRVCorr.sRatio = this.scaleTableSize.get(curTable) * 1.0 / this.oldTableSize.get(curTable);
+            paraRVCorr.sRatio = this.scaleTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable);
             paraRVCorr.curTable = curTable;
             paraRVCorr.referenceTable = referenceTable;
             paraRVCorr.mappedBestJointDegree = this.mappedBestJointDegree;
@@ -249,7 +260,11 @@ public class Dscaler {
         originalDB.loadMap(filePath + Configuration.configFile);
         System.out.println("====================Map Loaded=============================");
         originalDB.load_fkRelation();
+         originalDB.processMergeDegreeTitle();
         originalDB.loadTuple(filePath, leading, ignoreFirst, delimiter );
+        if (delimiter.equals("\\s+")){
+            delimiter = "\t";
+        }
         this.scaleTableSize = loadSaleTable();
         System.gc();
         System.out.println("\n===============================Extract ID Counts====================");
@@ -345,11 +360,20 @@ public class Dscaler {
             HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts) {
 
         ArrayList<Thread> threadList = new ArrayList<>();
+         int min = Integer.MAX_VALUE;
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : scaledCoda.jointDegreeDis.entrySet()) {
+            min = Math.min(min, jointDegreeEntry.getValue().size());
+        }
+        //System.err.println("this.scaledCoda.jointDegreeDis: " + this.scaledCoda.jointDegreeDis);
         for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeentry : this.scaledCoda.jointDegreeDis.entrySet()) {
             ParaCompAvaStats ppad = new ParaCompAvaStats(jointDegreeentry, srcJDAvaStats, ckJDAvaCounts);
+            if (min < 50){
+                ppad.run();
+            } else{
             Thread thr = new Thread(ppad);
             threadList.add(thr);
             thr.start();
+            }
         }
         for (Thread thr : threadList) {
             try {
@@ -403,6 +427,10 @@ public class Dscaler {
 
     private void corrMap() {
         ArrayList<Thread> threadList = new ArrayList<>();
+        int min = Integer.MAX_VALUE;
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : originalCoDa.jointDegreeDis.entrySet()) {
+            min = Math.min(min, jointDegreeEntry.getValue().size());
+        }
         for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : originalCoDa.jointDegreeDis.entrySet()) {
             ArrayList<HashMap<Integer, Integer>> scaledIdFreqs = new ArrayList<>();
             for (ComKey ck : jointDegreeEntry.getKey()) {
@@ -412,11 +440,13 @@ public class Dscaler {
             JDCorrelation jdCorrelation = new JDCorrelation(
                     this.scaledCoda.jointDegreeDis, jointDegreeEntry.getKey(), scaledIdFreqs, jointDegreeEntry.getValue());
             jdCorrelation.initialize(
-                    scaleTableSize.get(sourceTable) * 1.0 / this.oldTableSize.get(sourceTable), mappedBestJointDegree);
-
+                    scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable), mappedBestJointDegree);
+            if (min < 50){
+                jdCorrelation.run();
+            } else {
             Thread thread = new Thread(jdCorrelation);
             threadList.add(thread);
-
+            }
         }
 
         for (Thread thr : threadList) {
@@ -436,6 +466,7 @@ public class Dscaler {
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats
     ) {
         ArrayList<Thread> liss = new ArrayList<>();
+        //System.err.println("originalDB.mergedDegreeTitle: "+originalDB.mergedDegreeTitle);
         for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStatsEntry : srcJDAvaStats.entrySet()) {
             for (ComKey ck : originalDB.mergedDegreeTitle.get(srcJDAvaStatsEntry.getKey())) {
                 ParaCompJDSum pdc = new ParaCompJDSum(distanceMap, srcJDAvaStatsEntry, ck);
@@ -463,7 +494,7 @@ public class Dscaler {
         for (Entry<String, HashMap<Integer, Integer>> entry : localkeyMaps.entrySet()) {
             int count = 0;
             String curTable = entry.getKey();
-            System.out.println(entry.getKey());
+            //System.out.println(entry.getKey());
             String refTable = "";
             for (String ref : assignIDs.keySet()) {
                 if (ref.equals(curTable)) {
@@ -481,12 +512,12 @@ public class Dscaler {
                     pw.write("" + entry2.getKey());
                     int corId = scaledBiMap.get(entry.getKey()).get(entry2.getKey());
                     for (int t : assignIDs.get(refTable).get(corId)) {
-                        pw.write("|" + t);
+                        pw.write(delimiter + t);
                     }
                     String rrid = "" + entry2.getValue();
                     int mappedPK = Integer.parseInt(rrid);
                     if (this.originalDB.tables[tableNum].nonKeys[mappedPK] != null) {
-                        pw.write(this.originalDB.tables[tableNum].nonKeys[mappedPK]);
+                        pw.write(delimiter + this.originalDB.tables[tableNum].nonKeys[mappedPK]);
                     }
                     pw.newLine();
                     count++;
@@ -495,7 +526,7 @@ public class Dscaler {
                 pw.close();
                 // tuples.remove(jointDegreeEntry.getKey());
 
-                System.out.println(count + " " + file + "   " + entry.getValue().size());
+              //  System.out.println(count + " " + file + "   " + entry.getValue().size());
 
             }
         }
@@ -559,7 +590,7 @@ public class Dscaler {
             if (keyTables.contains(scaledRVentry.getKey())) {
                 ParaMatchKV paraMatchKV = new ParaMatchKV();
                 paraMatchKV.scaledBiMap = scaledBiMap;
-                paraMatchKV.sRatio = this.scaleTableSize.get(scaledRVentry.getKey()) * 1.0 / this.oldTableSize.get(scaledRVentry.getKey());
+                paraMatchKV.sRatio = this.scaleTableSize.get(scaledRVentry.getKey()) * 1.0 / this.originalDB.tableSize.get(scaledRVentry.getKey());
                 paraMatchKV.srcJDAvaStats = srcJDAvaStats;
                 paraMatchKV.scaledRVentry = scaledRVentry;
                 paraMatchKV.keyVectorIDs = keyVectorIDs;
@@ -593,6 +624,7 @@ public class Dscaler {
                 joinTableGen.reverseMergedDegree = reverseMergedDegree;
                 joinTableGen.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
                 joinTableGen.originalDB = this.originalDB;
+                joinTableGen.delimiter = delimiter;
                 Thread thread = new Thread(joinTableGen);
                 threadList.add(thread);
                 thread.start();
@@ -608,6 +640,8 @@ public class Dscaler {
         for (Entry<String, String> entry : tableType.entrySet()) {
             if (entry.getValue().equals("true")) {
                 result.put(entry.getKey(), true);
+            } else {
+                result.put(entry.getKey(), false);
             }
         }
         return result;
