@@ -289,7 +289,7 @@ public class Dscaler {
         scaleDistribution();
         originalCoDa.dropIdFreqDis();
         originalDB.dropFKs();
-
+        System.gc();
         System.out.println("====================Joint Degree Correlation======================");
         corrMap();
         scaledCoda.dropIdFreqDis();

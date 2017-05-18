@@ -58,19 +58,75 @@ public class DegreeScaler implements Runnable {
         this.orders = orders;
         this.key = key;
     }
+    
+      /**
+     * 
+     * @param originalDegreeDis
+     * @param scaledEdgeSize
+     * @param scaledNodeSize
+     * @param s_n
+     * @return scaledDistribution
+     * @throws FileNotFoundException 
+     */
+    public HashMap<Integer, Integer> scale(HashMap<Integer, Integer> originalDegreeDis, int scaledEdgeSize, int scaledNodeSize, double s_n) throws FileNotFoundException {
+        System.err.println("Static Scale");
+        HashMap<Integer, Integer> scaleDegree = saticScale(originalDegreeDis, s_n);
+        System.err.println("Node Scale");
+        NodeAdjustment nodeAdjustment = new NodeAdjustment();
+        nodeAdjustment.adjustment(scaleDegree, scaledNodeSize);
+        
+        System.err.println("Edge Scale");
+        
+        EdgeAdjust edgeAdjust = new EdgeAdjust(System.currentTimeMillis());
+        
+        HashMap<Integer, Integer> smoothDegree = edgeAdjust.smoothDegree(scaleDegree, scaledEdgeSize, scaledNodeSize);
+
+        return smoothDegree;
+    }
+    
+   
+    private int calExpectation(double val) {
+        int base = (int) val;
+        if ((val - base) > Math.random()) {
+            base++;
+        }
+        return base;
+    }
+    
+    
+    /**
+     * This function statically scale the frequency by s_n, 
+     * say the original frequency of degree 1 is 100, 
+     * then the scaled frequency will be 100*s_n.
+     * 
+     * @param originalDegreeDis
+     * @param s_n (scaling ratio)
+     * @return Scaled degree distribution
+     */
+    private HashMap<Integer, Integer> saticScale(HashMap<Integer, Integer> originalDegreeDis, double s_n) {
+        HashMap<Integer, Integer> results = new HashMap<>();
+        
+        for (Entry<Integer, Integer> entry : originalDegreeDis.entrySet()) {
+            int val = calExpectation(s_n * entry.getValue());
+            results.put(entry.getKey(), val);
+        }
+        return results;
+    }
 
     public HashMap<Integer, Integer> runA(HashMap<Integer, Integer> orders) throws FileNotFoundException {
-        HashMap<Integer, Integer> downsizeDegree = downSizeDstats(orders);
+        return scale(orders, dependAfter, sourceAfter, s);
+       /* HashMap<Integer, Integer> downsizeDegree = downSizeDstats(orders);
 
         HashMap<Integer, Integer> smoothDegree = smoothDstat_DBScale(downsizeDegree, dependAfter, this.sourceAfter);
         if (Collections.min(smoothDegree.values()) < 0) {
             System.out.println(this.key + "   Error: " + smoothDegree);
             System.exit(-1);
         }
-        TreeMap<Integer, Integer> map1 = new TreeMap<>(orders);
-        TreeMap<Integer, Integer> map2 = new TreeMap<>(smoothDegree);
+    //    TreeMap<Integer, Integer> map1 = new TreeMap<>(orders);
+    //    TreeMap<Integer, Integer> map2 = new TreeMap<>(smoothDegree);
         //System.out.println(this.key + "DS-statistics: " + this.getDStatistics(map2, map1));
         return smoothDegree;
+    */
     }
     HashMap<Integer, ArrayList<Integer>> map = new HashMap<>();
 
@@ -79,11 +135,12 @@ public class DegreeScaler implements Runnable {
 
         x.addAll(downsizeDegree.keySet());
         int max = Collections.max(x);
+        int min = Collections.min(x);
         ArrayList<Integer> value = new ArrayList<>();
         untouched = (int) Math.min(value.size() * 0.1, untouched);
         untouched = (int) (Math.random() * untouched);
         x = new ArrayList<>();
-        for (int i = 0; i <= max; i++) {
+        for (int i = min; i <= max; i++) {
             if (downsizeDegree.containsKey(i)) {
                 value.add(downsizeDegree.get(i));
             } else {
@@ -92,26 +149,10 @@ public class DegreeScaler implements Runnable {
             x.add(i);
         }
 
-       // System.out.println("X size: " + x.size() + "   " + this.key);
-
-        /*if (x.size() == 1) {
-         for (int i = 0; i < x.get(x.size() - 1); i++) {
-         x.add(i, i);
-         value.add(i, 0);
-         }
-         for (int i = 0; i < 5; i++) {
-         x.add(x.size());
-         value.add(0);
-         }
-         }*/
+      
         int vtex = this.sumVector(value);
         int diffs = sourceAfter - vtex;
-        if (Collections.min(value) < 0) {
-        //    System.out.print("Downsize Adjustment: " + value);
-        }
-
-        //System.out.println(key + "===================node adjust" + diffs + "=====================");
-
+      
         for (int i = 0; i <= 5 && i < x.size() & diffs != 0; i++) {
             double rati = (int) 1.0 * value.get(i) / vtex;
             value.set(i, Math.max(0, (int) (rati * diffs) + value.get(i)));
