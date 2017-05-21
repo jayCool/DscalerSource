@@ -70,13 +70,14 @@ public class DegreeScaler implements Runnable {
      */
     public HashMap<Integer, Integer> scale(HashMap<Integer, Integer> originalDegreeDis, int scaledEdgeSize, int scaledNodeSize, double s_n) throws FileNotFoundException {
         System.err.println("Static Scale");
+       // System.err.println("originalDegree:" + originalDegreeDis);
         HashMap<Integer, Integer> scaleDegree = saticScale(originalDegreeDis, s_n);
         System.err.println("Node Scale");
         NodeAdjustment nodeAdjustment = new NodeAdjustment();
-        nodeAdjustment.adjustment(scaleDegree, scaledNodeSize);
+        scaleDegree = nodeAdjustment.adjustment(scaleDegree, scaledNodeSize);
         
         System.err.println("Edge Scale");
-        
+        System.gc();
         EdgeAdjust edgeAdjust = new EdgeAdjust(System.currentTimeMillis());
         
         HashMap<Integer, Integer> smoothDegree = edgeAdjust.smoothDegree(scaleDegree, scaledEdgeSize, scaledNodeSize);

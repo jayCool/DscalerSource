@@ -84,7 +84,7 @@ public class ParaReader implements Runnable {
             tb.fkSize = fkSize;
             tables[this.tableNum] = tb;
             tables[this.tableNum].tableName = this.table;
-            //System.out.println("Mem=====" + table + "   " + count + "    " + delim + "    " + leng + "  " + "====");
+            System.out.println("Mem=====" + table + "   " + count + "    " + delim + "    " + leng + "  " + "====");
 
             scanner.close();
             scanner = null;

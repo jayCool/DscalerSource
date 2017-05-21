@@ -183,6 +183,7 @@ public class CoDa {
                     freqMap.put(c, 1 + freqMap.get(c));
                 }
             }
+            System.err.println("frequencies:" + entry.getKey().toString() + "\t" + freqMap);
             idFreqDis.put(entry.getKey(), freqMap);
         }
     }

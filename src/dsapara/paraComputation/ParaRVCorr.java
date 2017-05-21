@@ -46,7 +46,7 @@ public class ParaRVCorr implements Runnable {
     int thresh = 5;
     boolean[] fk1;
     boolean[] fk2;
-   
+
     public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree;
     public HashMap<String, Boolean> uniqueNess;
     public CoDa originalCoDa;
@@ -88,12 +88,26 @@ public class ParaRVCorr implements Runnable {
         }
 
         iteration = 5;
-        
+        if (checkAvaCoutsNotEmpty()) {
+            System.err.println("sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
+            System.err.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
+            System.err.println(this.curTable + ": is not empty!");
+        }
+        if (sortedRV.get(0).getKey().size() >= 3) {
+            if (checkAvaCoutsNotEmpty()) {
+                randomRoundEffiThreeKeys(scaledRVDis);
+            }
+        }
+        if (checkAvaCoutsNotEmpty()) {
+            System.out.println("here : sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
+            System.out.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
+            System.out.println(this.curTable + ": is not empty!");
+        }
+
         if (sortedRV.get(0).getKey().size() == 2) {
             if (checkAvaCoutsNotEmpty()) {
                 randomRoundEffiTwoKey(scaledRVDis);
             }
-
         }
         if (sortedRV.get(0).getKey().size() == 1) {
             if (checkAvaCoutsNotEmpty()) {
@@ -106,9 +120,9 @@ public class ParaRVCorr implements Runnable {
                 randomSwapEffi(scaledRVDis);
             }
         }
-        
+
         if (checkAvaCoutsNotEmpty()) {
-            
+            System.err.println("sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
             System.err.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
             System.err.println(this.curTable + ": is not empty!");
         }
@@ -135,8 +149,8 @@ public class ParaRVCorr implements Runnable {
         return true;
     }
 
-    private int ivConstraint(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2, 
-            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis, 
+    private int ivConstraint(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2,
+            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis,
             int bound1, int bound2, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry, int val) {
 
         int totalValue = conScaledRVDis.get(entry.getKey());
@@ -233,15 +247,14 @@ public class ParaRVCorr implements Runnable {
     }
 
     private boolean checkAvaCoutsNotEmpty() {
-        for (ComKey ck: referenceTable.get(this.curTable)){
+        for (ComKey ck : referenceTable.get(this.curTable)) {
             ArrayList<ArrayList<Integer>> zeroKeys = new ArrayList<>();
-            for (ArrayList<Integer> key: ckJDAvaCounts.get(ck).keySet()){
-                if (ckJDAvaCounts.get(ck).get(key) == 0
-                        ){
+            for (ArrayList<Integer> key : ckJDAvaCounts.get(ck).keySet()) {
+                if (ckJDAvaCounts.get(ck).get(key) == 0) {
                     zeroKeys.add(key);
                 }
             }
-            for (ArrayList<Integer> key: zeroKeys){
+            for (ArrayList<Integer> key : zeroKeys) {
                 ckJDAvaCounts.get(ck).remove(key);
             }
         }
@@ -398,7 +411,6 @@ public class ParaRVCorr implements Runnable {
 
     }
 
-
     private void randomRoundEffiTwoKey(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
         ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
@@ -456,7 +468,7 @@ public class ParaRVCorr implements Runnable {
         ConcurrentHashMap<ArrayList<Integer>, Integer> fk1IdSet = new ConcurrentHashMap<>();
         ConcurrentHashMap<ArrayList<Integer>, Integer> fk2IdSet = new ConcurrentHashMap<>();
 
-       computeFKidSet(fk1IdSet, fk2IdSet);
+        computeFKidSet(fk1IdSet, fk2IdSet);
 
         starterRandom = 0;
         for (ArrayList<Integer> first : fk1IdSet.keySet()) {
@@ -496,7 +508,7 @@ public class ParaRVCorr implements Runnable {
     }
 
     private void randomRoundEffiOneKey(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-        
+
         ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
             conScaledRVDis.put(entry.getKey(), entry.getValue());
@@ -510,10 +522,10 @@ public class ParaRVCorr implements Runnable {
                 }
             }
         }
-        
+
         for (ArrayList<Integer> first : fk1IdSet.keySet()) {
-            if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).containsKey(first) ||
-                    ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first) == 0) {
+            if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).containsKey(first)
+                    || ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first) == 0) {
                 break;
             }
             int avaCount = ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first);
@@ -589,7 +601,7 @@ public class ParaRVCorr implements Runnable {
                 ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).put(preVdegrees.get(t), vv - vsub);
             }
         }
-        return ;
+        return;
     }
 
     private boolean checkOrder(ArrayList<ArrayList<Integer>> calDegrees) {
@@ -667,7 +679,7 @@ public class ParaRVCorr implements Runnable {
             if (!rfa) {
                 break;
             }
-            
+
             int bound1 = 1, bound2 = 1;
 
             if (!this.uniqueNess.get(curTable)) {
@@ -677,7 +689,7 @@ public class ParaRVCorr implements Runnable {
                 bound1 = findUniqBound(pair1);
                 bound2 = findUniqBound(pair2);
             }
-            
+
             if ((!conScaledRVDis.containsKey(pair1) || conScaledRVDis.get(pair1) < bound1)
                     && (!conScaledRVDis.containsKey(pair2) || conScaledRVDis.get(pair2) < bound2)) {
 
@@ -844,6 +856,142 @@ public class ParaRVCorr implements Runnable {
                 ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).remove(rv.get(t));
             }
         }
+    }
+
+    private void randomRoundEffiThreeKeys(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
+        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
+            conScaledRVDis.put(entry.getKey(), entry.getValue());
+        }
+        ArrayList<ArrayList<ArrayList<Integer>>> idSet = new ArrayList<>();
+        ArrayList<String> tables = new ArrayList<>();
+        ArrayList<ComKey> cks = new ArrayList<>();
+        for (int i = 0; i < referenceTable.get(curTable).size(); i++) {
+            idSet.add(computeFKIDList(i));
+            tables.add(this.referenceTable.get(curTable).get(i).sourceTable);
+            cks.add(referenceTable.get(curTable).get(i));
+            System.out.println("size: " + idSet.get(i).size());
+        }
+
+        long uniqBound = Integer.MAX_VALUE;
+        starterRandom = 0;
+        ArrayList<Integer> indexs = new ArrayList<>(tables.size());
+        for (int i = 0; i < tables.size(); i++) {
+            indexs.add(0);
+        }
+        while (checkIndexes(indexs, idSet)) {
+            System.out.println("indexes:" + indexs);
+            int avaCount = calAvaCounts(indexs, idSet, cks);
+            if (avaCount == 0) {
+                continue;
+            }
+            if (avaCount < 0) {
+                System.out.println("here");
+                System.out.println("indexes:" + indexs);
+                System.out.println(idSet.get(0).size());
+                break;
+            }
+            uniqBound = computeUniqBound(tables, indexs, idSet);
+            ArrayList<ArrayList<Integer>> rv = computeRV(indexs, idSet);
+            int usedFrequency = processNewEdges(avaCount, rv, conScaledRVDis, uniqBound);
+            System.out.println("frequency: " + usedFrequency);
+            updateDistribution(rv, usedFrequency);
+            int returnNumber = updateLeading(indexs, indexs.size() - 1, idSet);
+            if (returnNumber < 0) {
+                System.out.println("there");
+                System.out.println("indexes:" + indexs);
+                System.out.println(idSet.get(0).size());
+                break;
+            }
+        }
+        System.out.println("indexes: " + indexs + "\t" + idSet.get(0));
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : conScaledRVDis.entrySet()) {
+            scaledRVDis.put(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private ArrayList<ArrayList<Integer>> computeFKIDList(int index) {
+        ArrayList<ArrayList<Integer>> fkIDSet = new ArrayList<>();
+        //  for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
+        for (ArrayList<Integer> key : ckJDAvaCounts.get(referenceTable.get(curTable).get(index)).keySet()) {
+            fkIDSet.add(key);
+        }
+        return fkIDSet;
+    }
+//}
+
+    private boolean checkIndexes(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+
+        for (int i = 0; i < indexs.size(); i++) {
+            if (indexs.get(i) < idSet.get(i).size()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int calAvaCounts(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet, ArrayList<ComKey> cks) {
+        int minNumber = Integer.MAX_VALUE;
+        for (int i = 0; i < indexs.size(); i++) {
+            int index = indexs.get(i);
+            ArrayList<Integer> jd = idSet.get(i).get(index);
+            if (ckJDAvaCounts.get(cks.get(i)).containsKey(jd) && ckJDAvaCounts.get(cks.get(i)).get(jd) > 0) {
+                minNumber = Math.min(minNumber, ckJDAvaCounts.get(cks.get(i)).get(jd));
+            } else {
+                //boolean end = false;
+
+                int returnNumber = updateLeading(indexs, i, idSet);
+                //idSet.get(i).remove(index);
+                /*if (!end){
+                    indexs.set(i, index);
+                }*/
+
+                return returnNumber;
+            }
+        }
+
+        return minNumber;
+    }
+
+    private int updateLeading(ArrayList<Integer> indexs, int i, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+        for (int j = i + 1; j < indexs.size(); j++) {
+            indexs.set(j, 0);
+        }
+        if (i < 0) {
+            return 0;
+        }
+        if (i == 0 && indexs.get(i) >= idSet.get(i).size() - 1) {
+            return -1;
+        } else if (indexs.get(i) == idSet.get(i).size() - 1) {
+            indexs.set(i, 0);
+
+            return updateLeading(indexs, i - 1, idSet);
+        } else {
+            indexs.set(i, (indexs.get(i) + 1));
+        }
+        return 0;
+    }
+
+    private long computeUniqBound(ArrayList<String> tables, ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+        if (this.uniqueNess.get(curTable)) {
+            long result = 0;
+            for (int i = 0; i < tables.size(); i++) {
+                long v1 = scaledJDDis.get(this.mergedDegreeTitle.get(tables.get(i))).get(idSet.get(i).get(indexs.get(i)));
+                result = result * v1;
+            }
+
+            return result;
+        }
+
+        return Long.MAX_VALUE;
+    }
+
+    private ArrayList<ArrayList<Integer>> computeRV(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+        ArrayList<ArrayList<Integer>> result = new ArrayList<>();
+        for (int i = 0; i < indexs.size(); i++) {
+            result.add(idSet.get(i).get(indexs.get(i)));
+        }
+        return result;
     }
 
 }
