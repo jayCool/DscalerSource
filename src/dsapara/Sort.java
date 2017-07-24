@@ -6,7 +6,7 @@
 
 package dsapara;
 
-import dbstrcture.ComKey;
+import db.structs.ComKey;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;

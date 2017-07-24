@@ -1,7 +1,7 @@
 package dsapara.paraComputation;
 
-import dscaler.dataStruct.AvaliableStatistics;
-import dbstrcture.ComKey;
+
+import db.structs.ComKey;
 import dscaler.dataStruct.AvaliableStatistics;
 import java.util.ArrayList;
 import java.util.HashMap;

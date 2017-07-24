@@ -5,8 +5,8 @@
  */
 package dscaler.dataStruct;
 
-import dbstrcture.ComKey;
-import dbstrcture.DB;
+import db.structs.ComKey;
+import db.structs.DB;
 import dsapara.Dscaler;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -58,7 +58,7 @@ public class CoDa {
                 int tableNum = originalDB.tableMapping.get(tableName);
 
                 String srcTable = ck.sourceTable;
-                int srcNum = originalDB.getTableNum(srcTable);
+                int srcNum = originalDB.getTableID(srcTable);
 
                 int[] idcounts = new int[originalDB.tables[srcNum].fks.length];
 
@@ -90,7 +90,7 @@ public class CoDa {
             keys.addAll(entry.getValue());
             HashMap<ArrayList<Integer>, ArrayList<Integer>> jointDegreeIdMap = new HashMap<>();
             String tableName = entry.getKey();
-            int tableNum = originalDB.getTableNum(tableName);
+            int tableNum = originalDB.getTableID(tableName);
             ArrayList<ArrayList<Integer>> allJointDegrees = new ArrayList<>(originalDB.tables[tableNum].fks.length);
 
             for (int pkid = 0; pkid < originalDB.tables[tableNum].fks.length; pkid++) {

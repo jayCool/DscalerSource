@@ -1,8 +1,9 @@
 package dsapara.paraComputation;
 
+import db.structs.ComKey;
+import db.structs.DB;
 import dscaler.dataStruct.AvaliableStatistics;
-import dbstrcture.DB;
-import dbstrcture.ComKey;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -93,7 +94,7 @@ public class ParaJoinTableGen implements Runnable {
 
     private void printTuples(ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> conJDAvaEntry, BufferedWriter pw) throws IOException {
         int level = 0;
-        int tableNum = this.originalDB.getTableNum(jdAvaEntry.getKey());
+        int tableNum = this.originalDB.getTableID(jdAvaEntry.getKey());
 
         while (conJDAvaEntry.keySet().size() > 0) {
             for (Map.Entry<ArrayList<Integer>, ArrayList<Integer>> jdEntry : conJDAvaEntry.entrySet()) {

@@ -5,8 +5,8 @@
  */
 package dsapara.paraComputation;
 
-import dbstrcture.ComKey;
-import dscaler.dataStruct.AvaliableStatistics;
+
+import db.structs.ComKey;
 import dscaler.dataStruct.AvaliableStatistics;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  *
- * @author workshop
+ * @author Zhang Jiangwei
  */
 public class ParaCompAvaStats implements Runnable {
 

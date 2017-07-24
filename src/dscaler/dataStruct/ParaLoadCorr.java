@@ -5,9 +5,9 @@
  */
 package dscaler.dataStruct;
 
+import db.structs.ComKey;
+import db.structs.DB;
 import dscaler.dataStruct.CoDa;
-import dbstrcture.ComKey;
-import dbstrcture.DB;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

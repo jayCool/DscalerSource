@@ -5,18 +5,18 @@
  */
 package dsapara;
 
+import db.structs.ComKey;
+import db.structs.DB;
+import db.structs.Options;
 import dsapara.paraComputation.ParaJoinTableGen;
 import dsapara.paraComputation.ParaMatchKV;
 import dsapara.paraComputation.ParaKeyIdAssign;
 import dsapara.paraComputation.ParaCompJDSum;
 import dsapara.paraComputation.ParaIdAssign;
-import dsapara.paraComputation.ParaSort;
 import dsapara.paraComputation.ParaCompAvaStats;
 import dscaler.dataStruct.AvaliableStatistics;
 import dbstrcture.Configuration;
 import dscaler.dataStruct.CoDa;
-import dbstrcture.DB;
-import dbstrcture.ComKey;
 import dsapara.paraComputation.ParaRVCorr;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -30,10 +30,6 @@ import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import static org.kohsuke.args4j.ExampleMode.ALL;
-import org.kohsuke.args4j.Option;
 
 /**
  *
@@ -45,33 +41,21 @@ public class Dscaler {
      * @param args the command line arguments
      */
     int scaledVertexSize = 0;
-       String twoRef = "socialgraph";
+    String twoRef = "socialgraph";
     final String scaleTableStr = "scaleTable.txt";
     public boolean eveNum = false;
     DB originalDB = new DB();
     CoDa originalCoDa = new CoDa();
     CoDa scaledCoda = new CoDa();
-
-    @Option(name = "-i", usage = "input of the folder", metaVar = "INPUT")
-    private String filePath = "";
-
-    @Option(name = "-o", usage = "ouput of the folder", metaVar = "OUTPUT")
-    private String outPath = "D:\\Research\\DATA\\dscaler\\acmdl\\out\\";
-
-    @Option(name = "-d", usage = "Delimilter of the fields", metaVar = "MODE")
-    private String delimiter  = "\\s+";
-
-    @Option(name = "-f", usage = "Ignore the first line", metaVar = "Thread")
-    private boolean ignoreFirst = false;
-
-    @Option(name = "-static", usage = "Static scale of the database", metaVar = "StaticScale")
-    private double staticS = 2;
-
-    @Option(name = "-dynamic", usage = "Dynamic scale of the database, input is the file", metaVar = "DynamicScale")
-    private String dynamicSFile = "";
-
-    @Option(name = "-l", usage = "leading index of the fks", metaVar = "Leading Index")
-    private int leading = 0;
+    
+    String delimiter;
+    boolean ignoreFirst;
+    String dynamicSFile;
+    String filePath;
+    String outPath;
+    double staticS;
+    int leading;
+   
 
     private HashMap<String, Integer> loadSaleTable() throws FileNotFoundException {
 
@@ -90,48 +74,6 @@ public class Dscaler {
             }
         }
         return map;
-    }
-
-    public static void main(String[] args) throws FileNotFoundException, IOException {
-        Dscaler fsq = new Dscaler();
-        fsq.parseParameter(args);
-       // fsq.run();
-    }
-
-    private void parseParameter(String[] args) throws FileNotFoundException {
-        CmdLineParser parser = new CmdLineParser(this);
-        try {
-            parser.parseArgument(args);
-            if (!filePath.isEmpty() && !outPath.isEmpty()) {
-                Dscaler fsq = new Dscaler();
-                if (delimiter.equals("t")){
-                    delimiter = "\t";
-                }
-                fsq.delimiter  = delimiter;
-                fsq.ignoreFirst = ignoreFirst;
-                fsq.dynamicSFile = dynamicSFile;
-                fsq.filePath = filePath;
-                fsq.outPath = outPath;
-                fsq.staticS = staticS;
-                try {
-                    fsq.run();
-                } catch (IOException ex) {
-                    Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-        } catch (CmdLineException e) {
-            System.err.println("  Example: java SampleMain" + parser.printExample(ALL));
-            return;
-        }
-    }
-
-    
-    public Dscaler(String string) {
-        filePath = string;
-    }
-
-    Dscaler() {
     }
 
     void processRaw() throws FileNotFoundException {
@@ -257,21 +199,15 @@ public class Dscaler {
     }
 
     public void run() throws FileNotFoundException, IOException {
-        originalDB.loadMap(filePath + Configuration.configFile);
-        System.out.println("====================Map Loaded=============================");
-        originalDB.load_fkRelation();
-         originalDB.processMergeDegreeTitle();
-        originalDB.loadTuple(filePath, leading, ignoreFirst, delimiter );
-        if (delimiter.equals("\\s+")){
-            delimiter = "\t";
-        }
+        originalDB.initial_loading(filePath, leading, ignoreFirst, delimiter, Options.loadFK, ".txt", filePath + Configuration.configFile);
+        
         this.scaleTableSize = loadSaleTable();
         System.gc();
         System.out.println("\n===============================Extract ID Counts====================");
         originalCoDa.loadKeyCounts(originalDB.fkRelation, originalDB);
 
         System.out.println("======================Compute Joint Degree=====================");
-        originalCoDa.processJointDegreeTable(originalDB.chainKey_map.keySet());
+        originalCoDa.processJointDegreeTable(originalDB.getComKeys());
         originalCoDa.processJointDegree(originalDB);
 
         System.out.println("===========================Process correlation=================");
@@ -506,7 +442,7 @@ public class Dscaler {
                 File file = new File(outPath + "/" + entry.getKey() + ".txt");
                 FileWriter writer = new FileWriter(file);
                 BufferedWriter pw = new BufferedWriter(writer, 100000);
-                int tableNum = this.originalDB.getTableNum(entry.getKey());
+                int tableNum = this.originalDB.getTableID(entry.getKey());
                 int size = this.originalDB.tables[tableNum].fkSize;
                 for (Entry<Integer, Integer> entry2 : entry.getValue().entrySet()) {
                     pw.write("" + entry2.getKey());
@@ -524,10 +460,6 @@ public class Dscaler {
                 }
 
                 pw.close();
-                // tuples.remove(jointDegreeEntry.getKey());
-
-              //  System.out.println(count + " " + file + "   " + entry.getValue().size());
-
             }
         }
     }
@@ -660,5 +592,15 @@ public class Dscaler {
                 joinTables.add(table);
             }
         }}
+
+    void setInitials(String delimiter, boolean ignoreFirst, String dynamicSFile, String filePath, String outPath, double staticS, int leading) {
+        this.delimiter = delimiter;
+        this.ignoreFirst = ignoreFirst;
+        this.dynamicSFile = dynamicSFile;
+        this.filePath = filePath;
+        this.outPath = outPath;
+        this.staticS = staticS;
+        this.leading = leading;
+    }
 
 }

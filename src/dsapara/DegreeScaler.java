@@ -5,22 +5,17 @@
  */
 package dsapara;
 
-import dbstrcture.ComKey;
-import java.io.File;
-import java.io.FileInputStream;
+
+import db.structs.ComKey;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Scanner;
 import java.util.TreeMap;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -116,18 +111,7 @@ public class DegreeScaler implements Runnable {
 
     public HashMap<Integer, Integer> runA(HashMap<Integer, Integer> orders) throws FileNotFoundException {
         return scale(orders, dependAfter, sourceAfter, s);
-       /* HashMap<Integer, Integer> downsizeDegree = downSizeDstats(orders);
 
-        HashMap<Integer, Integer> smoothDegree = smoothDstat_DBScale(downsizeDegree, dependAfter, this.sourceAfter);
-        if (Collections.min(smoothDegree.values()) < 0) {
-            System.out.println(this.key + "   Error: " + smoothDegree);
-            System.exit(-1);
-        }
-    //    TreeMap<Integer, Integer> map1 = new TreeMap<>(orders);
-    //    TreeMap<Integer, Integer> map2 = new TreeMap<>(smoothDegree);
-        //System.out.println(this.key + "DS-statistics: " + this.getDStatistics(map2, map1));
-        return smoothDegree;
-    */
     }
     HashMap<Integer, ArrayList<Integer>> map = new HashMap<>();
 

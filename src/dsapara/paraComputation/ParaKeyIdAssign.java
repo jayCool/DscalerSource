@@ -5,8 +5,9 @@
  */
 package dsapara.paraComputation;
 
+import db.structs.ComKey;
 import dscaler.dataStruct.AvaliableStatistics;
-import dbstrcture.ComKey;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;

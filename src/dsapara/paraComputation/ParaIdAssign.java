@@ -5,9 +5,10 @@
  */
 package dsapara.paraComputation;
 
+import db.structs.ComKey;
+import db.structs.DB;
 import dscaler.dataStruct.AvaliableStatistics;
-import dbstrcture.ComKey;
-import dbstrcture.DB;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -29,8 +30,10 @@ import java.util.logging.Logger;
 
 /**
  *
- * @author workshop
+ * @author Zhang Jiangwei
  */
+
+
 public class ParaIdAssign implements Runnable {
 
     public Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationEntry;
@@ -313,7 +316,7 @@ public class ParaIdAssign implements Runnable {
     }
 
     private void initializeParameters() {
-        tableNum = this.originalDB.getTableNum(scaledCorrelationEntry.getKey());
+        tableNum = this.originalDB.getTableID(scaledCorrelationEntry.getKey());
         fkSize = this.originalDB.tables[tableNum].fkSize;
         referTable = scaledCorrelationEntry.getKey();
         fkTableIndexes = new int[referencingTable.get(referTable).size()];
