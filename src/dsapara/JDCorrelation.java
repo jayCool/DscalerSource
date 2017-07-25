@@ -26,104 +26,96 @@ public class JDCorrelation extends PrintFunction implements Runnable {
 
     HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis;
     ArrayList<ComKey> jointDegreeTables;
-    ArrayList<HashMap<Integer, Integer>> scaledIdFreqs;
-    HashMap<ArrayList<Integer>, Integer> originalJDDis;
-    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree;
-    HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> mapped = new HashMap<>();
+    ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions;
+    HashMap<ArrayList<Integer>, ArrayList<Integer>> originalReverseJointDegrees;
+    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMapping;
+    HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> jointDegreeMapping = new HashMap<>();
 
-    //The approach of the correlation is based on the original degree distribution.
-    // 1. sort the degree in descending order. And settle the originalJDDis from largest to the smallest
-    // 2. Find the closest if the originalJDDis is not found
-    public JDCorrelation() {
-    }
-
-    JDCorrelation(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
-            ArrayList<ComKey> jointDegreeTables, ArrayList<HashMap<Integer, Integer>> scaledIdFreqs,
-            HashMap<ArrayList<Integer>, Integer> originalJDDis) {
+     JDCorrelation(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
+            ArrayList<ComKey> jointDegreeTables, ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions,
+            HashMap<ArrayList<Integer>, ArrayList<Integer>> originalReverseJointDegrees) {
         this.jointDegreeTables = jointDegreeTables;
-        this.scaledIdFreqs = scaledIdFreqs;
+        this.scaledDegreeDistributions = scaledDegreeDistributions;
         this.scaledJDDis = scaledJDDis;
-        this.originalJDDis = originalJDDis;
+        this.originalReverseJointDegrees = originalReverseJointDegrees;
     }
 
-    HashMap<ArrayList<String>, HashMap<ArrayList<Integer>, Integer>> corrMap(HashMap<ArrayList<String>, HashMap<ArrayList<Integer>, Integer>> mergedDistribution, HashMap<ArrayList<String>, HashMap<Integer, Integer>> downsizedCounts) {
-        // HashMap<ArrayList<ArrayList<Integer>>, Integer> correlatedOriginal = loadCorrAll(corrOriginal);
-        HashMap<ArrayList<String>, HashMap<ArrayList<Integer>, Integer>> result = new HashMap<>();
-        for (Entry<ArrayList<String>, HashMap<ArrayList<Integer>, Integer>> entry : mergedDistribution.entrySet()) {
-            ArrayList<HashMap<Integer, Integer>> arrs = new ArrayList<>();
-            for (int i = 1; i < entry.getKey().size(); i++) {
-                ArrayList<String> arr = new ArrayList<>();
-                arr.add(entry.getKey().get(0));
-                arr.add(entry.getKey().get(i));
-                arrs.add(downsizedCounts.get(arr));
-            }
-            HashMap<ArrayList<Integer>, Integer> correlated = jointDegreeCorr(entry.getValue(), arrs);
-            result.put(entry.getKey(), correlated);
-            //   System.out.println("end");
-        }
-        return result;
+     
+      //The approach of the correlation is based on the original degree distribution.
+    // 1. sort the degree in descending order. And settle the originalReverseJointDegrees from largest to the smallest
+    // 2. Find the closest if the originalReverseJointDegrees is not found
+  
+    private HashMap<ArrayList<Integer>, Integer> jointDegreeCorrelation(HashMap<ArrayList<Integer>, ArrayList<Integer>> originalReverseJointDegrees,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
+        List<Entry<ArrayList<Integer>, ArrayList<Integer>>> sortedOriginalJDDis = new Sort().sortOnKeySumJD(originalReverseJointDegrees);
 
-    }
-
-    private HashMap<ArrayList<Integer>, Integer> jointDegreeCorr(HashMap<ArrayList<Integer>, Integer> originalJDDis,
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
-        //System.err.println("scaledIdFreqs: "+ scaledIdFreqs);
-        HashMap<ArrayList<Integer>, Integer> scaledOneJDDis = correlation(originalJDDis, scaledIdFreqs);
+        HashMap<ArrayList<Integer>, Integer> scaledJDDis = jdCorrelationOneLoop(sortedOriginalJDDis, scaledDegreeDistributions);
         iterations++;
 
-        while (!scaledIdFreqs.get(0).keySet().isEmpty()) {
-            //System.err.println("iteration one" + iterations);
-            HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis = correlation(originalJDDis, scaledIdFreqs);
-            mergeExtraJDDis(extraScaledOneJDDis, scaledOneJDDis);
+        while (!scaledDegreeDistributions.get(0).keySet().isEmpty()) {
+            HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis = jdCorrelationOneLoop(sortedOriginalJDDis, scaledDegreeDistributions);
+            mergeExtraJDDis(extraScaledOneJDDis, scaledJDDis);
         }
 
-        this.mappedBestJointDegree.put(jointDegreeTables, mapped);
-        return scaledOneJDDis;
+        this.norm1JointDegreeMapping.put(jointDegreeTables, jointDegreeMapping);
+        return scaledJDDis;
     }
 
-    private HashMap<ArrayList<Integer>, Integer> correlation(HashMap<ArrayList<Integer>, Integer> originalJDDis,
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
+    /**
+     * This method returns the incremental synthesized joint-degree distribution
+     *
+     * @param sortedOriginalJDDis
+     * @param scaledDegreeDistributions
+     * @return
+     */
+    private HashMap<ArrayList<Integer>, Integer> jdCorrelationOneLoop(
+            List<Entry<ArrayList<Integer>, ArrayList<Integer>>> sortedOriginalJDDis,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
 
-        clearEmptyScaleIDFreq(scaledIdFreqs);
+        clearEmptyscaledDegreeDistributions(scaledDegreeDistributions);
 
-        HashMap<ArrayList<Integer>, Integer> scaledOneJDDis = new HashMap<>();
-        int frequency = 0;
-        List<Entry<ArrayList<Integer>, Integer>> sortedJDDis = new Sort().sortOnKeySum1(originalJDDis);
+        HashMap<ArrayList<Integer>, Integer> scaledOneLoopJDDis = new HashMap<>();
 
-        for (int i = 0; i < sortedJDDis.size() && !scaledIdFreqs.get(0).keySet().isEmpty() && sortedJDDis.size() > 0; i++) {
-            Entry<ArrayList<Integer>, Integer> jdFreqEntry = sortedJDDis.get(i);
-            ArrayList<Integer> calJDs = new ArrayList<>();
+        for (int i = 0; i < sortedOriginalJDDis.size() && !scaledDegreeDistributions.get(0).keySet().isEmpty() && sortedOriginalJDDis.size() > 0; i++) {
+            Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry = sortedOriginalJDDis.get(i);
 
-            // find the closest matching joint degree
-            boolean notFound = calCandidateJD(jdFreqEntry, scaledIdFreqs, calJDs);
-            if (notFound) {
+            // find the closest joint degree
+            ArrayList<Integer> calculatedJD = new ArrayList<>();
+            boolean firstIterAndNoPerfectMatch = calCandidateJD(originalJDEntry, scaledDegreeDistributions, calculatedJD);
+            if (firstIterAndNoPerfectMatch) {
                 continue;
             }
             if (emptyScaledIDFreqs) {
                 break;
             }
 
-            frequency = calFreq(jdFreqEntry);
-            for (int j = 0; j < calJDs.size() && frequency > 0; j++) {
-                frequency = Math.min(frequency, scaledIdFreqs.get(j).get(calJDs.get(j)));
+            int frequency = calculateFrequency(originalJDEntry);
+
+            //Find the minimal avaliable frequency from scaledDegreeDistributions
+            for (int j = 0; j < calculatedJD.size() && frequency > 0; j++) {
+                frequency = Math.min(frequency, scaledDegreeDistributions.get(j).get(calculatedJD.get(j)));
             }
-            //System.err.println("scaledIdFreqs: " + scaledIdFreqs + "\t" + frequency);
 
             if (frequency <= 0) {
                 continue;
             }
 
-            storeJDMapping(jdFreqEntry, calJDs);
-            boolean cleaningNeeded = updateDistributions(calJDs, scaledIdFreqs, scaledOneJDDis, frequency);
-            if (cleaningNeeded) {
-                cleanZeroBudgetDis(scaledIdFreqs, calJDs);
-            }
+            storeJDMapping(originalJDEntry, calculatedJD);
 
+            updateStatistics(calculatedJD, scaledDegreeDistributions, scaledOneLoopJDDis, frequency);
         }
-        clearEmptyScaleIDFreq(scaledIdFreqs);
-        return scaledOneJDDis;
+        
+        clearEmptyscaledDegreeDistributions(scaledDegreeDistributions);
+        return scaledOneLoopJDDis;
     }
 
+    
+    /**
+     * Find the closest degree from degreeSet
+     * @param degree
+     * @param degreeSet
+     * @return closest degree
+     */
     private int findClosestDegree(Integer degree, Set<Integer> degreeSet) {
         if (degreeSet.size() == 0) {
             return 0;
@@ -146,124 +138,196 @@ public class JDCorrelation extends PrintFunction implements Runnable {
 
     @Override
     public void run() {
-        scaledJDDis.put(jointDegreeTables, jointDegreeCorr(originalJDDis, scaledIdFreqs));
+        scaledJDDis.put(jointDegreeTables, jointDegreeCorrelation(originalReverseJointDegrees, scaledDegreeDistributions));
         threadTerminated = true;
     }
 
-    private boolean checkNotFound(Entry<ArrayList<Integer>, Integer> jdFreqEntry,
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
+    /**
+     * This method checks if the scaledDegreeDistributions can form the
+     * originalJDEntry
+     *
+     * @param originalJDEntry
+     * @param scaledDegreeDistributions
+     * @return True:No perfect matching, False:Perfect Matching
+     */
+    private boolean checkPerfectMatch(Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
 
-        for (int j = 0; j < jdFreqEntry.getKey().size(); j++) {
-            if (scaledIdFreqs.get(j).keySet().size() == 0) {
+        for (int j = 0; j < originalJDEntry.getKey().size(); j++) {
+            if (scaledDegreeDistributions.get(j).keySet().size() == 0) {
                 emptyScaledIDFreqs = true;
                 return true;
             }
-            if (!scaledIdFreqs.get(j).containsKey(jdFreqEntry.getKey().get(j))) {
+            if (!scaledDegreeDistributions.get(j).containsKey(originalJDEntry.getKey().get(j))) {
                 return true;
             }
         }
         return false;
     }
 
-    private ArrayList<Integer> calJointDegrees(Entry<ArrayList<Integer>, Integer> jdFreqEntry,
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, ArrayList<Integer> calJDs) {
+    
+    /**
+     * 
+     * @param originalJDEntry
+     * @param scaledDegreeDistributions
+     * @param calculatedJD
+     * @return closestJointDegree
+     */
+    private ArrayList<Integer> calJointDegrees(Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions, ArrayList<Integer> calculatedJD) {
 
-        for (int j = 0; j < jdFreqEntry.getKey().size(); j++) {
-            if (scaledIdFreqs.get(j).keySet().size() == 0) {
+        for (int j = 0; j < originalJDEntry.getKey().size(); j++) {
+            if (scaledDegreeDistributions.get(j).keySet().size() == 0) {
                 emptyScaledIDFreqs = true;
                 break;
             }
-            int closeDeg = findClosestDegree(jdFreqEntry.getKey().get(j), scaledIdFreqs.get(j).keySet());
-            calJDs.add(closeDeg);
+            int closestDegree = findClosestDegree(originalJDEntry.getKey().get(j), scaledDegreeDistributions.get(j).keySet());
+            calculatedJD.add(closestDegree);
         }
-        return calJDs;
+        return calculatedJD;
     }
 
-    private int calFreq(Entry<ArrayList<Integer>, Integer> jdFreqEntry) {
-        int frequency = (int) Math.floor(jdFreqEntry.getValue() * sRatio);
-        double diff = jdFreqEntry.getValue() * sRatio - frequency;
-        double kl = Math.random();
-        if (kl < diff) {
+    /**
+     * Calculate the expected frequency
+     *
+     * @param originalJDEntry
+     * @return expected frequency
+     */
+    private int calculateFrequency(Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry) {
+        int frequency = (int) Math.floor(originalJDEntry.getValue().size() * sRatio);
+        double diff = originalJDEntry.getValue().size() * sRatio - frequency;
+        if (Math.random() < diff) {
             frequency++;
         }
         return frequency;
     }
 
-    private void storeJDMapping(Entry<ArrayList<Integer>, Integer> jdFreqEntry, ArrayList<Integer> calJDs) {
-        if (!mapped.containsKey(jdFreqEntry.getKey())) {
-            mapped.put(jdFreqEntry.getKey(), new ArrayList<ArrayList<Integer>>());
+    /**
+     * Store the closest joint-degree mapping This will be used in RVC and KVC
+     *
+     * @param originalJDEntry
+     * @param calculatedJD
+     */
+    private void storeJDMapping(Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry, ArrayList<Integer> calculatedJD) {
+        if (!jointDegreeMapping.containsKey(originalJDEntry.getKey())) {
+            jointDegreeMapping.put(originalJDEntry.getKey(), new ArrayList<ArrayList<Integer>>());
         }
-        if (!mapped.get(jdFreqEntry.getKey()).contains(calJDs)) {
-            mapped.get(jdFreqEntry.getKey()).add(calJDs);
+        if (!jointDegreeMapping.get(originalJDEntry.getKey()).contains(calculatedJD)) {
+            jointDegreeMapping.get(originalJDEntry.getKey()).add(calculatedJD);
         }
     }
 
-    void initialize(double s, HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree) {
-        this.sRatio = s;
-        this.mappedBestJointDegree = mappedBestJointDegree;
+    /**
+     * Initialize parameters
+     * @param sRatio
+     * @param mappedBestJointDegree 
+     */
+    void initialize(double sRatio, HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree) {
+        this.sRatio = sRatio;
+        this.norm1JointDegreeMapping = mappedBestJointDegree;
     }
 
-    private void clearEmptyScaleIDFreq(ArrayList<HashMap<Integer, Integer>> scaledIdFreqs) {
-        for (int i = 0; i < scaledIdFreqs.size(); i++) {
-            if (scaledIdFreqs.get(i)==null){
+    /**
+     * Clear the distribution with 0 budget or null
+     * @param scaledDegreeDistributions 
+     */
+    private void clearEmptyscaledDegreeDistributions(ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
+        for (int i = 0; i < scaledDegreeDistributions.size(); i++) {
+            if (scaledDegreeDistributions.get(i) == null) {
                 continue;
             }
-            ArrayList<Integer> keySetCopy = new ArrayList<Integer>(scaledIdFreqs.get(i).keySet());
+            ArrayList<Integer> keySetCopy = new ArrayList<Integer>(scaledDegreeDistributions.get(i).keySet());
             for (int degree : keySetCopy) {
-                if (scaledIdFreqs.get(i).get(degree) == 0) {
-                    scaledIdFreqs.get(i).remove(degree);
+                if (scaledDegreeDistributions.get(i).get(degree) == 0) {
+                    scaledDegreeDistributions.get(i).remove(degree);
                 }
             }
         }
     }
 
-    private boolean calCandidateJD(Entry<ArrayList<Integer>, Integer> jdFreqEntry, ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, ArrayList<Integer> calJDs) {
-        boolean notfound = false;
+    
+    /**
+     * This method finds the calculatedJointdegree
+     * And returns if firstIterAndNoPerfectMatch
+     * @param originalJDEntry
+     * @param scaledDegreeDistributions
+     * @param calculatedJD
+     * @return 
+     */
+    private boolean calCandidateJD(Entry<ArrayList<Integer>, ArrayList<Integer>> originalJDEntry,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions, ArrayList<Integer> calculatedJD) {
+        boolean firstIterAndNoPerfectMatch = false;
         if (iterations == 0) {
-            notfound = checkNotFound(jdFreqEntry, scaledIdFreqs);
-            for (int i : jdFreqEntry.getKey()) {
-                calJDs.add(i);
+            firstIterAndNoPerfectMatch = checkPerfectMatch(originalJDEntry, scaledDegreeDistributions);
+            for (int i : originalJDEntry.getKey()) {
+                calculatedJD.add(i);
             }
         } else {
-            calJointDegrees(jdFreqEntry, scaledIdFreqs, calJDs);
+            calJointDegrees(originalJDEntry, scaledDegreeDistributions, calculatedJD);
         }
-        return notfound;
+        return firstIterAndNoPerfectMatch;
     }
 
-    private boolean updateDistributions(ArrayList<Integer> calJDs, ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, HashMap<ArrayList<Integer>, Integer> scaledOneJDDis, int frequency) {
+    /**
+     * This method updates the related statistics
+     *
+     * @param calculatedJD
+     * @param scaledDegreeDistributions
+     * @param scaledOneLoopJDDis
+     * @param frequency
+     * @return
+     */
+    private void updateStatistics(ArrayList<Integer> calculatedJD,
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions,
+            HashMap<ArrayList<Integer>, Integer> scaledOneLoopJDDis, int frequency) {
         int newBudget = 0;
         boolean cleanning = false;
-        for (int j = 0; j < calJDs.size(); j++) {
-            int totalBudget = scaledIdFreqs.get(j).get(calJDs.get(j));
-            newBudget = totalBudget - frequency;
-            scaledIdFreqs.get(j).put(calJDs.get(j), newBudget);
+        for (int j = 0; j < calculatedJD.size(); j++) {
+            int oldBudget = scaledDegreeDistributions.get(j).get(calculatedJD.get(j));
+            newBudget = oldBudget - frequency;
+            scaledDegreeDistributions.get(j).put(calculatedJD.get(j), newBudget);
             if (newBudget == 0) {
                 cleanning = true;
             }
         }
-        //System.err.println("scaledIdFreqs:" + scaledIdFreqs);
 
-        if (!scaledOneJDDis.containsKey(calJDs)) {
-            scaledOneJDDis.put(calJDs, 0);
+        if (!scaledOneLoopJDDis.containsKey(calculatedJD)) {
+            scaledOneLoopJDDis.put(calculatedJD, 0);
         }
-        scaledOneJDDis.put(calJDs, frequency + scaledOneJDDis.get(calJDs));
-        return cleanning;
+        scaledOneLoopJDDis.put(calculatedJD, frequency + scaledOneLoopJDDis.get(calculatedJD));
+
+        if (cleanning) {
+            cleanZeroBudgetDegreeDistribution(scaledDegreeDistributions, calculatedJD);
+        }
+        return;
     }
 
-    private void cleanZeroBudgetDis(ArrayList<HashMap<Integer, Integer>> scaledIdFreqs, ArrayList<Integer> calJDs) {
-        for (int j = 0; j < scaledIdFreqs.size(); j++) {
-            if (scaledIdFreqs.get(j).containsKey(calJDs.get(j)) && scaledIdFreqs.get(j).get(calJDs.get(j)) == 0) {
-                scaledIdFreqs.get(j).remove(calJDs.get(j));
+    /**
+     * Cleans the degreedistribution with 0 budget
+     *
+     * @param scaledDegreeDistributions
+     * @param calculatedJD
+     */
+    private void cleanZeroBudgetDegreeDistribution(ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions, ArrayList<Integer> calculatedJD) {
+        for (int j = 0; j < scaledDegreeDistributions.size(); j++) {
+            if (scaledDegreeDistributions.get(j).containsKey(calculatedJD.get(j)) && scaledDegreeDistributions.get(j).get(calculatedJD.get(j)) == 0) {
+                scaledDegreeDistributions.get(j).remove(calculatedJD.get(j));
             }
         }
     }
-
-    private void mergeExtraJDDis(HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis, HashMap<ArrayList<Integer>, Integer> scaledOneJDDis) {
+    
+    /**
+     * Merge extraScaledOneJDDis to scaledJDDist
+     * @param extraScaledOneJDDis
+     * @param scaledJDDis 
+     */
+    private void mergeExtraJDDis(HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis,
+            HashMap<ArrayList<Integer>, Integer> scaledJDDis) {
         for (Entry<ArrayList<Integer>, Integer> entry : extraScaledOneJDDis.entrySet()) {
-            if (!scaledOneJDDis.containsKey(entry.getKey())) {
-                scaledOneJDDis.put(entry.getKey(), 0);
+            if (!scaledJDDis.containsKey(entry.getKey())) {
+                scaledJDDis.put(entry.getKey(), 0);
             }
-            scaledOneJDDis.put(entry.getKey(), scaledOneJDDis.get(entry.getKey()) + entry.getValue());
+            scaledJDDis.put(entry.getKey(), scaledJDDis.get(entry.getKey()) + entry.getValue());
         }
     }
 

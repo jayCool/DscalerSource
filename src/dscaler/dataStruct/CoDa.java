@@ -23,7 +23,7 @@ import java.util.logging.Logger;
 public class CoDa {
 
     public HashMap<ComKey, int[]> fkIDCounts = new HashMap<>();
-    //public HashMap<ComKey, HashMap<Integer, Integer>> idFreqDis = new HashMap<>();
+    public HashMap<ComKey, HashMap<Integer, Integer>> idFreqDis = new HashMap<>();
 
     public HashMap<String, ArrayList<ComKey>> jointDegreeTable = new HashMap<>(); //key is the table A, values are the tables REFERENCING table A
 
@@ -183,23 +183,22 @@ public class CoDa {
         tupleRVs = null;
 
     }
-    /*
-    public void processIdFrequency() {
+
+    public void calculateDegreeDistribution() {
         for (Map.Entry<ComKey, int[]> entry : fkIDCounts.entrySet()) {
-            HashMap<Integer, Integer> freqMap = new HashMap<>();
-            for (int c : entry.getValue()) {
-                if (!freqMap.containsKey(c)) {
-                    freqMap.put(c, 1);
+            HashMap<Integer, Integer> frequencyMap = new HashMap<>();
+            for (int counts : entry.getValue()) {
+                if (!frequencyMap.containsKey(counts)) {
+                    frequencyMap.put(counts, 1);
                 } else {
-                    freqMap.put(c, 1 + freqMap.get(c));
+                    frequencyMap.put(counts, 1 + frequencyMap.get(counts));
                 }
             }
-            System.err.println("frequencies:" + entry.getKey().toString() + "\t" + freqMap);
-            idFreqDis.put(entry.getKey(), freqMap);
+            idFreqDis.put(entry.getKey(), frequencyMap);
         }
     }
-    */
-    
+
+    /*
     public void processJointDis() {
         for (Map.Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> entry : jointDegrees.entrySet()) {
             HashMap<ArrayList<Integer>, Integer> degreeFreq = new HashMap<>();
@@ -214,11 +213,19 @@ public class CoDa {
         }
         jointDegrees = null;
         fkIDCounts = null;
-
-    }
+      
+    }  */
     
-    /*
+   
     public void dropIdFreqDis() {
         idFreqDis = null;
-    }*/
+    }
+
+    public ArrayList<HashMap<Integer, Integer>> extractDegreeDistributions(ArrayList<ComKey> keys) {
+        ArrayList<HashMap<Integer, Integer>> degreeDistributions = new ArrayList<>();
+        for (ComKey ck : keys) {
+                degreeDistributions.add(idFreqDis.get(ck));
+            }
+        return degreeDistributions;
+    }
 }

@@ -41,7 +41,7 @@ public class NodeAdjustment {
         }
         degreeList.clear();
         frequencies.clear();
-        for (int i = minDegree; i <= maxDegree; i++) {
+        for (int i = minDegree; i < maxDegree; i++) {
             degreeList.add(i);
             if (!degreeFreq.containsKey(i)) {
                 frequencies.add(0);
@@ -63,33 +63,16 @@ public class NodeAdjustment {
      * @param degreeDis
      * @param scaledNodeSize
      */
-    public HashMap<Integer, Integer> adjustment(HashMap<Integer, Integer> degreeDis, int scaledNodeSize) {
-        System.err.println("extract degree list");
+    public void adjustment(HashMap<Integer, Integer> degreeDis, int scaledNodeSize) {
         ArrayList<Integer> degreeList = extractDegreeList(degreeDis);
 
-        System.err.println("calculate frequencies");
-
         ArrayList<Integer> frequencies = coordinateTheFrequencies(degreeDis, degreeList);
-        /**
-         * test
-         */
-      //  test(frequencies, degreeList);
 
-        System.err.println("smoothing: ");
         smoothAndExtendDegrees(degreeList, frequencies);
-
-      //  test(frequencies, degreeList);
-
-        System.err.println("even Distribution:");
 
         evenDistributionOfDiffs(scaledNodeSize, frequencies);
 
-     //   test(frequencies, degreeList);
-
-        System.out.println("random swap");
         randomAdjustmentForDiffs(frequencies, scaledNodeSize);
-
-    //    test(frequencies, degreeList);
 
         degreeDis.clear();
 
@@ -97,9 +80,6 @@ public class NodeAdjustment {
             degreeDis.put(degreeList.get(i), frequencies.get(i));
         }
 
-        frequencies.clear();
-        degreeList.clear();
-        return degreeDis;
     }
 
     /**
@@ -163,46 +143,14 @@ public class NodeAdjustment {
         int vertexSum = sumVector(frequencies);
         int diffs = scaledNodeSize - vertexSum;
         int adjustingIndex = 0;
-        System.err.println(" diff: " + diffs);
-        ArrayList<Integer> positiveNodes = calPositiveNodes(frequencies);
-        if (diffs > 0) {
-            while (diffs != 0) {
-                frequencies.set(adjustingIndex,  frequencies.get(adjustingIndex) + Math.abs(diffs) / diffs);
-                adjustingIndex = (adjustingIndex + 1) % (frequencies.size());
-                diffs --;
-            }
-        }else{
-             while (diffs != 0) {
-                int posIndex = positiveNodes.get(adjustingIndex);
-                frequencies.set(posIndex,  frequencies.get(posIndex) + Math.abs(diffs) / diffs);
-                if (frequencies.get(adjustingIndex)==0){
-                    positiveNodes.remove(adjustingIndex);
-                }
-                adjustingIndex = (adjustingIndex + 1) % (positiveNodes.size());
-                diffs ++;
-            }
+
+        while (diffs != 0) {
+            frequencies.set(adjustingIndex, Math.max(0, frequencies.get(adjustingIndex) + Math.abs(diffs) / diffs));
+            adjustingIndex = (adjustingIndex + 1) % (frequencies.size() - 1);
+            vertexSum = sumVector(frequencies);
+            diffs = scaledNodeSize - vertexSum;
         }
 
-    }
-
-    private void test(ArrayList<Integer> frequencies, ArrayList<Integer> degreeList) {
-        HashMap<Integer, Integer> positiveHashMap = new HashMap<>();
-        for (int i = 0; i < degreeList.size(); i++) {
-            if (frequencies.get(i) > 0) {
-                positiveHashMap.put(degreeList.get(i), frequencies.get(i));
-            }
-        }
-        System.err.println("positiveMap: " + positiveHashMap);
-    }
-
-    private ArrayList<Integer> calPositiveNodes(ArrayList<Integer> frequencies) {
-        ArrayList<Integer> result = new ArrayList<>();
-        for (int index = 0; index < frequencies.size(); index++) {
-            if (frequencies.get(index) > 0) {
-                result.add(index);
-            }
-        }
-        return result;
     }
 
 }

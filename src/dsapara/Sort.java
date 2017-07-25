@@ -184,12 +184,15 @@ public class Sort {
         return sorted;
     }
                 
-                
-        public List<Map.Entry<ArrayList<Integer>, Integer>> sortOnKeySum1(HashMap<ArrayList<Integer>, Integer> orders) {
-        List<Map.Entry<ArrayList<Integer>,Integer>> sorted = new ArrayList<Map.Entry<ArrayList<Integer>, Integer>>(orders.entrySet());
-      //  System.out.println(sorted.size());
-        Collections.sort(sorted, new Comparator<Map.Entry<ArrayList<Integer>, Integer>>() {
-            public int compare(Map.Entry<ArrayList<Integer>,Integer> o1, Map.Entry<ArrayList<Integer>,Integer> o2) {
+    /**
+     *
+     * @param orders
+     * @return
+     */
+    public List<Map.Entry<ArrayList<Integer>, ArrayList<Integer>>> sortOnKeySumJD(HashMap<ArrayList<Integer>, ArrayList<Integer>> orders) {
+        List<Map.Entry<ArrayList<Integer>,ArrayList<Integer>>> sorted = new ArrayList<Map.Entry<ArrayList<Integer>, ArrayList<Integer>>>(orders.entrySet());
+        Collections.sort(sorted, new Comparator<Map.Entry<ArrayList<Integer>, ArrayList<Integer>>>() {
+            public int compare(Map.Entry<ArrayList<Integer>,ArrayList<Integer>> o1, Map.Entry<ArrayList<Integer>,ArrayList<Integer>> o2) {
                 ArrayList<Integer> arr1 = new ArrayList<>();
                 ArrayList<Integer> arr2= new ArrayList<>();
                 arr1=o1.getKey();
