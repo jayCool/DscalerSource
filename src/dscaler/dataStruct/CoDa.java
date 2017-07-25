@@ -21,84 +21,91 @@ import java.util.logging.Logger;
  * @author ZhangJiangwei
  */
 public class CoDa {
-    public HashMap<ComKey, int[]> idCounts = new HashMap<>();
-    public HashMap<ComKey, HashMap<Integer, Integer>> idFreqDis = new HashMap<>();
- 
+
+    public HashMap<ComKey, int[]> fkIDCounts = new HashMap<>();
+    //public HashMap<ComKey, HashMap<Integer, Integer>> idFreqDis = new HashMap<>();
+
     public HashMap<String, ArrayList<ComKey>> jointDegreeTable = new HashMap<>(); //key is the table A, values are the tables REFERENCING table A
-    
-    public HashMap<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> jointDegrees = new HashMap<>();    
-    public HashMap<ArrayList<ComKey>,HashMap<ArrayList<Integer>, ArrayList<Integer>>> reverseJointDegrees = new HashMap<>();    
-    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeDis  = new HashMap<>();
- 
-    public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> idRVs = new HashMap<>();
+
+    public HashMap<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> jointDegrees = new HashMap<>();
+    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> reverseJointDegrees = new HashMap<>();
+    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeDis = new HashMap<>();
+
+    public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> tupleRVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseRVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> rvDis = new HashMap<>();
-    
-     
+
     public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> idKVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> kvDis = new HashMap<>();
-    
-    public void dropKVDis(){
+
+    public void dropKVDis() {
         this.kvDis = null;
     }
-   
-    //key [table1,table2], table 1 is the source table, table 2 is the referceing table.
-    public void loadKeyCounts(HashMap<String, ArrayList<ComKey>> fkRelation, DB originalDB) {
-        for (Map.Entry<String, ArrayList<ComKey>> entry : fkRelation.entrySet()) {
-            int count = 0;
-            for (ComKey ck : entry.getValue()) {
 
-                String tableName = entry.getKey();
-                int colNum = ck.referenceposition;
-                if (tableName.equals("socialgraph") && count == 1) {
-                    colNum = ck.referenceposition + 1;
-                    continue;
-                }
-                int tableNum = originalDB.tableMapping.get(tableName);
+    /**
+     * This method calculates the counts of each FK IDs
+     *
+     * @param db
+     */
+    public void loadFKIDCounts(DB db) {
+        for (ComKey ck : db.getComKeys()) {
+            String tableName = ck.getReferencingTable();
+            int colNum = ck.getReferenceposition();
+            int tableID = db.getTableID(tableName);
 
-                String srcTable = ck.sourceTable;
-                int srcNum = originalDB.getTableID(srcTable);
+            String srcTable = ck.getSourceTable();
+            int[] idcounts = new int[db.getTableSize(srcTable)];
 
-                int[] idcounts = new int[originalDB.tables[srcNum].fks.length];
+            for (int i = 0; i < db.getTableSize(tableName); i++) {
+                int[] arr = db.getFKValues(tableID, i);
+                int id = arr[colNum - 1];
+                idcounts[id] += 1;
+            }
+            fkIDCounts.put(ck, idcounts);
+        }
+    }
 
-                for (int[] arr : originalDB.tables[tableNum].fks) {
-                    int id = arr[colNum - 1];
-                    idcounts[id] += 1;
-                }
-                idCounts.put(ck, idcounts);
-                count++;
+    /**
+     * This method calculates the jointTableMapping, The KEY is the source table
+     * The VALUES are the referencing tables
+     *
+     * @param db
+     */
+    public void processJointDegreeTable(DB db) {
+        for (ComKey ck : db.getComKeys()) {
+            if (!jointDegreeTable.containsKey(ck.getSourceTable())) {
+                jointDegreeTable.put(ck.getSourceTable(), new ArrayList<ComKey>());
+            }
+            if (!jointDegreeTable.get(ck.getSourceTable()).contains(ck)) {
+                jointDegreeTable.get(ck.getSourceTable()).add(ck);
             }
         }
     }
-    
-    public void processJointDegreeTable(Set<ComKey> comKeys) {
-        for (ComKey ck : comKeys) {
-            if (!jointDegreeTable.containsKey(ck.sourceTable)) {
-                jointDegreeTable.put(ck.sourceTable, new ArrayList<ComKey>());
-            }
-            if (!jointDegreeTable.get(ck.sourceTable).contains(ck)) {
-                jointDegreeTable.get(ck.sourceTable).add(ck);
-            }
-        }
-    }
-    
-    public void processJointDegree(DB originalDB
+
+    /**
+     * This method calculates the joint-degree for tuples in all tables,
+     * JointDegrees is the map which maps the tupleID to Joint-degree
+     * reverseJointDegrees maps the Joint-Degree to the tupleIDs having that JD.
+     *
+     * @param db
+     */
+    public void calculateJointDegrees(DB db
     ) {
+        processJointDegreeTable(db);
+
         for (Map.Entry<String, ArrayList<ComKey>> entry : jointDegreeTable.entrySet()) {
-            ArrayList<ComKey> keys = new ArrayList<>();
-            keys.addAll(entry.getValue());
+            ArrayList<ComKey> referencingFKs = entry.getValue();
             HashMap<ArrayList<Integer>, ArrayList<Integer>> jointDegreeIdMap = new HashMap<>();
             String tableName = entry.getKey();
-            int tableNum = originalDB.getTableID(tableName);
-            ArrayList<ArrayList<Integer>> allJointDegrees = new ArrayList<>(originalDB.tables[tableNum].fks.length);
+            ArrayList<ArrayList<Integer>> allJointDegrees = new ArrayList<>(db.getTableSize(tableName));
 
-            for (int pkid = 0; pkid < originalDB.tables[tableNum].fks.length; pkid++) {
-                ArrayList<Integer> degrees = new ArrayList<>(keys.size());
+            for (int pkid = 0; pkid < db.getTableSize(tableName); pkid++) {
+                ArrayList<Integer> degrees = new ArrayList<>(referencingFKs.size());
 
-                for (int o = 0; o < keys.size(); o++) {
-                    ComKey ck = keys.get(o);
-                    degrees.add(idCounts.get(ck)[pkid]);
+                for (int o = 0; o < referencingFKs.size(); o++) {
+                    ComKey ck = referencingFKs.get(o);
+                    degrees.add(fkIDCounts.get(ck)[pkid]);
                 }
                 if (!jointDegreeIdMap.containsKey(degrees)) {
                     jointDegreeIdMap.put(degrees, new ArrayList<Integer>());
@@ -107,16 +114,16 @@ public class CoDa {
                 allJointDegrees.add(degrees);
             }
 
-            reverseJointDegrees.put(keys, jointDegreeIdMap);
-            jointDegrees.put(keys, allJointDegrees);
+            reverseJointDegrees.put(referencingFKs, jointDegreeIdMap);
+            jointDegrees.put(referencingFKs, allJointDegrees);
         }
     }
-    
-    
-    public void processRV(
-            DB originalDB
-    ) throws FileNotFoundException {
-        ArrayList<Thread> liss = new ArrayList<>();
+    /**
+     * This method parallely calculates RV Distribution 
+     * @param originalDB 
+     */
+    public void calculateRV(DB originalDB) {
+        ArrayList<Thread> threadList = new ArrayList<>();
         for (Map.Entry<String, ArrayList<ComKey>> entry : originalDB.fkRelation.entrySet()) {
             ParaLoadCorr plc = new ParaLoadCorr();
             plc.originalDB = originalDB;
@@ -125,12 +132,12 @@ public class CoDa {
             plc.originalCoDa = this;
 
             Thread thr = new Thread(plc);
-            liss.add(thr);
+            threadList.add(thr);
             thr.start();
 
         }
 
-        for (Thread thr : liss) {
+        for (Thread thr : threadList) {
             try {
                 thr.join();
             } catch (InterruptedException ex) {
@@ -140,19 +147,23 @@ public class CoDa {
     }
     
     
-     public void processKV() {
-        for (Map.Entry<String, ArrayList<ArrayList<ArrayList<Integer>>>> rv : idRVs.entrySet()) {
-            String table = rv.getKey();
+    /**
+     * This method calculates the KV
+     */
+    public void calculateKV() {
+        for (Map.Entry<String, ArrayList<ArrayList<ArrayList<Integer>>>> rvEntry : tupleRVs.entrySet()) {
+            String table = rvEntry.getKey();
             for (Map.Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> jointDegree : jointDegrees.entrySet()) {
-                if (table.equals(jointDegree.getKey().get(0).sourceTable)) {
+                if (table.equals(jointDegree.getKey().get(0).getSourceTable())) {
                     HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvMap = new HashMap<>();
                     HashMap<ArrayList<ArrayList<Integer>>, Integer> kvDisMap = new HashMap<>();
-               
+
                     for (int i = 0; i < jointDegree.getValue().size(); i++) {
                         ArrayList<ArrayList<Integer>> kv = new ArrayList<>();
                         kv.add(jointDegree.getValue().get(i));
-                        kv.addAll(rv.getValue().get(i));
+                        kv.addAll(rvEntry.getValue().get(i));
 
+                        
                         if (!kvMap.containsKey(kv)) {
                             kvMap.put(kv, new ArrayList<Integer>());
                         }
@@ -164,17 +175,17 @@ public class CoDa {
                             kvDisMap.put(kv, 1 + kvDisMap.get(kv));
                         }
                     }
-                  kvDis.put(table, kvDisMap);
-                  reverseKV.put(table, kvMap);
+                    kvDis.put(table, kvDisMap);
+                    reverseKV.put(table, kvMap);
                 }
             }
         }
-        idRVs = null;
+        tupleRVs = null;
 
     }
-    
-      public void processIdFrequency() {
-        for (Map.Entry<ComKey, int[]> entry : idCounts.entrySet()) {
+    /*
+    public void processIdFrequency() {
+        for (Map.Entry<ComKey, int[]> entry : fkIDCounts.entrySet()) {
             HashMap<Integer, Integer> freqMap = new HashMap<>();
             for (int c : entry.getValue()) {
                 if (!freqMap.containsKey(c)) {
@@ -187,7 +198,8 @@ public class CoDa {
             idFreqDis.put(entry.getKey(), freqMap);
         }
     }
-      
+    */
+    
     public void processJointDis() {
         for (Map.Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> entry : jointDegrees.entrySet()) {
             HashMap<ArrayList<Integer>, Integer> degreeFreq = new HashMap<>();
@@ -201,11 +213,12 @@ public class CoDa {
             jointDegreeDis.put(entry.getKey(), degreeFreq);
         }
         jointDegrees = null;
-        idCounts = null;
+        fkIDCounts = null;
 
-    }  
-
-    public void dropIdFreqDis() {
-    idFreqDis = null; 
     }
+    
+    /*
+    public void dropIdFreqDis() {
+        idFreqDis = null;
+    }*/
 }

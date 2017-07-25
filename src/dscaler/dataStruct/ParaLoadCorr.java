@@ -7,18 +7,15 @@ package dscaler.dataStruct;
 
 import db.structs.ComKey;
 import db.structs.DB;
-import dscaler.dataStruct.CoDa;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 
 /**
  *
- * @author workshop
+ * @author Zhang Jiangwei
  */
 public class ParaLoadCorr implements Runnable {
-    //  HashMap<String, HashSet<String>> missingIDs;
 
     Map.Entry<String, ArrayList<ComKey>> entry;
     HashMap<String, ArrayList<ComKey>> jointDegreeTable;
@@ -28,45 +25,48 @@ public class ParaLoadCorr implements Runnable {
     @Override
     public void run() {
 
-        ArrayList<ArrayList<ArrayList<Integer>>> refDegree = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<Integer>>> tupleRVDegree = new ArrayList<>();
 
-        HashMap<ArrayList<ArrayList<Integer>>, Integer> degreeCount = new HashMap<>();
-        HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> mmap = new HashMap<>();
+        HashMap<ArrayList<ArrayList<Integer>>, Integer> rvCounts = new HashMap<>();
+        HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvHashMap = new HashMap<>();
         HashMap<Integer, ArrayList<ComKey>> combinedKeys = new HashMap<>();
+
         for (int i = 0; i < entry.getValue().size(); i++) {
             combinedKeys.put(i, jointDegreeTable.get(entry.getValue().get(i).sourceTable));
         }
 
         String curTable = entry.getKey();
-        int curNum = this.originalDB.tableMapping.get(curTable);
-        for (int keyMappedID = 0; keyMappedID < this.originalDB.tables[curNum].fks.length; keyMappedID++) {
+        int tableID = this.originalDB.getTableID(curTable);
+        for (int keyMappedID = 0; keyMappedID < originalDB.getTableSize(curTable); keyMappedID++) {
 
-            int[] tupleValue = originalDB.tables[curNum].fks[keyMappedID];
-            ArrayList<ArrayList<Integer>> degree = new ArrayList<>(combinedKeys.size());
+            int[] tupleValue = originalDB.getFKValues(tableID, keyMappedID);
+            ArrayList<ArrayList<Integer>> rvDegree = new ArrayList<>(combinedKeys.size());
+
             for (int i = 0; i < combinedKeys.size(); i++) {
-                degree.add(this.originalCoDa.jointDegrees.get(combinedKeys.get(i)).get(tupleValue[i]));
+                rvDegree.add(this.originalCoDa.jointDegrees.get(combinedKeys.get(i)).get(tupleValue[i]));
+
                 if (this.originalCoDa.jointDegrees.get(combinedKeys.get(i)).get(tupleValue[i]) == null) {
                     System.out.println(combinedKeys.get(i) + "-----" + keyMappedID + " "
                             + tupleValue[i] + "      " + i + "      " + entry.getKey());
                 }
             }
-                refDegree.add(degree);
-                if (!degreeCount.containsKey(degree)) {
-                    degreeCount.put(degree, 1);
-                } else {
-                    degreeCount.put(degree, 1 + degreeCount.get(degree));
-                }
+            
+            tupleRVDegree.add(rvDegree);
+            if (!rvCounts.containsKey(rvDegree)) {
+                rvCounts.put(rvDegree, 1);
+            } else {
+                rvCounts.put(rvDegree, 1 + rvCounts.get(rvDegree));
+            }
 
-                if (!mmap.containsKey(degree)) {
-                    mmap.put(degree, new ArrayList<Integer>());
-                }
-                mmap.get(degree).add(keyMappedID);
+            if (!rvHashMap.containsKey(rvDegree)) {
+                rvHashMap.put(rvDegree, new ArrayList<Integer>());
+            }
+            rvHashMap.get(rvDegree).add(keyMappedID);
         }
-        
-        
-        this.originalCoDa.reverseRVs.put(curTable, mmap);
-        this.originalCoDa.idRVs.put(curTable, refDegree);
-        this.originalCoDa.rvDis.put(curTable, degreeCount);
+
+        this.originalCoDa.reverseRVs.put(curTable, rvHashMap);
+        this.originalCoDa.tupleRVs.put(curTable, tupleRVDegree);
+        this.originalCoDa.rvDis.put(curTable, rvCounts);
     }
 
 }

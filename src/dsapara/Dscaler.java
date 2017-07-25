@@ -25,6 +25,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Scanner;
@@ -56,24 +57,30 @@ public class Dscaler {
     double staticS;
     int leading;
    
-
+    
+    /**
+     * 
+     * @return The ScaledTableSize Map
+     * @throws FileNotFoundException 
+     */
     private HashMap<String, Integer> loadSaleTable() throws FileNotFoundException {
 
-        HashMap<String, Integer> map = new HashMap<>();
+        HashMap<String, Integer> scaledTableSize = new HashMap<>();
         if (this.dynamicSFile.length() > 0) {
             Scanner scanner = new Scanner(new File(filePath + "/" + this.scaleTableStr));
 
             while (scanner.hasNext()) {
                 String[] splits = scanner.nextLine().trim().split("\\s+");
-                //System.out.println(splits.toString());
-                map.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
+                scaledTableSize.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
             }
         } else {
-            for (Entry<String, Integer> entry : this.originalDB.tableSize.entrySet()) {
-                map.put(entry.getKey(), (int) (entry.getValue() * this.staticS));
+            for (String table: originalDB.getAllTables()){
+                int size = originalDB.getTableSize(table);
+                scaledTableSize.put(table, (int) (size * this.staticS));
             }
         }
-        return map;
+        
+        return scaledTableSize;
     }
 
     void processRaw() throws FileNotFoundException {
@@ -109,11 +116,13 @@ public class Dscaler {
     private void scaleDistribution()
             throws FileNotFoundException {
         ArrayList<Thread> arr = new ArrayList<>();
-        int min = Integer.MAX_VALUE;
-           for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.idFreqDis.entrySet()) {
-            min = Math.min(min,entry.getValue().size());
-           }
-        for (Entry<ComKey, HashMap<Integer, Integer>> entry : this.originalCoDa.idFreqDis.entrySet()) {
+         
+        for (Entry<ComKey, int[]> entry : this.originalCoDa.fkIDCounts.entrySet()) {
+            int min = Integer.MAX_VALUE;
+            for (int i:entry.getValue()){
+                min = Math.min(i, min);
+            }
+            
             ComKey key = entry.getKey();
             String sourceTable = key.sourceTable;
             String dependTable = key.referencingTable;
@@ -144,7 +153,7 @@ public class Dscaler {
             }
         }
        
-      //  System.err.println("scaledCoda.idFreqDis: " + scaledCoda.idFreqDis + "\t" + originalCoDa.idFreqDis);
+  
     }
 
     HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> correlateRV(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
@@ -202,33 +211,33 @@ public class Dscaler {
         originalDB.initial_loading(filePath, leading, ignoreFirst, delimiter, Options.loadFK, ".txt", filePath + Configuration.configFile);
         
         this.scaleTableSize = loadSaleTable();
+        
         System.gc();
+
         System.out.println("\n===============================Extract ID Counts====================");
-        originalCoDa.loadKeyCounts(originalDB.fkRelation, originalDB);
+        originalCoDa.loadFKIDCounts(originalDB);
 
-        System.out.println("======================Compute Joint Degree=====================");
-        originalCoDa.processJointDegreeTable(originalDB.getComKeys());
-        originalCoDa.processJointDegree(originalDB);
+        System.out.println("======================Calculate Joint Degree=====================");
+        originalCoDa.calculateJointDegrees(originalDB);
 
-        System.out.println("===========================Process correlation=================");
-        originalCoDa.processRV(originalDB);
-        System.out.println("====================Process Key Distribution =====================");
-        originalCoDa.processKV();
+        System.out.println("===========================Calculate RV correlation=================");
+        originalCoDa.calculateRV(originalDB);
 
-        System.out.println("======================Process FreCounts====================");
-        originalCoDa.processIdFrequency();
-        originalCoDa.processJointDis();
-        //HashMap<String, ArrayList<ComKey>> referencingTables = this.referencingTable;
+        System.out.println("====================Calculate KV  Distribution =====================");
+        originalCoDa.calculateKV();
 
         long start = System.currentTimeMillis();
         System.out.println("====================Scale Distribution======================= ");
         scaleDistribution();
-        originalCoDa.dropIdFreqDis();
+        //originalCoDa.dropIdFreqDis();
+        System.out.println("======================Process FreCounts====================");
+        //originalCoDa.processIdFrequency();
+        originalCoDa.processJointDis();
         originalDB.dropFKs();
         System.gc();
         System.out.println("====================Joint Degree Correlation======================");
         corrMap();
-        scaledCoda.dropIdFreqDis();
+       // scaledCoda.dropIdFreqDis();
 
         System.out.println("====================Computation=======================");
         HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts = new HashMap<>();
