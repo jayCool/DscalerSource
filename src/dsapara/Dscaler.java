@@ -42,13 +42,13 @@ public class Dscaler {
      * @param args the command line arguments
      */
     int scaledVertexSize = 0;
-    String twoRef = "socialgraph";
+    //String twoRef = "socialgraph";
     final String scaleTableStr = "scaleTable.txt";
     public boolean eveNum = false;
     DB originalDB = new DB();
     CoDa originalCoDa = new CoDa();
     CoDa scaledCoda = new CoDa();
-    
+
     String delimiter;
     boolean ignoreFirst;
     String dynamicSFile;
@@ -56,12 +56,13 @@ public class Dscaler {
     String outPath;
     double staticS;
     int leading;
-   
     
+    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMapping = new HashMap<>();
+
     /**
-     * 
+     *
      * @return The ScaledTableSize Map
-     * @throws FileNotFoundException 
+     * @throws FileNotFoundException
      */
     private HashMap<String, Integer> loadSaleTable() throws FileNotFoundException {
 
@@ -74,12 +75,12 @@ public class Dscaler {
                 scaledTableSize.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
             }
         } else {
-            for (String table: originalDB.getAllTables()){
+            for (String table : originalDB.getAllTables()) {
                 int size = originalDB.getTableSize(table);
                 scaledTableSize.put(table, (int) (size * this.staticS));
             }
         }
-        
+
         return scaledTableSize;
     }
 
@@ -113,47 +114,16 @@ public class Dscaler {
     HashMap<String, Integer> scaleCounts = new HashMap<>();
     HashMap<String, Integer> scaleTableSize = new HashMap<>();
 
-    private void scaleDistribution()
-            throws FileNotFoundException {
-        ArrayList<Thread> arr = new ArrayList<>();
-         
+    private void scaleDistribution() {
         for (Entry<ComKey, int[]> entry : this.originalCoDa.fkIDCounts.entrySet()) {
-            int min = Integer.MAX_VALUE;
-            for (int i:entry.getValue()){
-                min = Math.min(i, min);
-            }
-            
-            ComKey key = entry.getKey();
-            String sourceTable = key.sourceTable;
-            String dependTable = key.referencingTable;
-            DegreeScaler degreeScaler = new DegreeScaler(this.scaledCoda.idFreqDis, scaleCounts, key, entry.getValue());
-            
-            degreeScaler.s = 1.0 * this.scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable);;
-            degreeScaler.dependAfter = this.scaleTableSize.get(dependTable);
-            degreeScaler.sourceAfter = this.scaleTableSize.get(sourceTable);
-            if (min < 50){
-                degreeScaler.run();
-            } else {
-                Thread thr = new Thread(degreeScaler);
-                arr.add(thr);
-            }
+            String sourceTable = entry.getKey().getSourceTable();
+            String referencingTable = entry.getKey().getReferencingTable();
+            DegreeScaling degreeScale = new DegreeScaling();
+            HashMap<Integer, Integer> scaledDis = degreeScale.scale(originalCoDa.idFreqDis.get(entry.getKey()), scaleTableSize.get(referencingTable), scaleTableSize.get(sourceTable),
+                    1.0 * this.scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable));
+            scaledCoda.idFreqDis.put(entry.getKey(), scaledDis);
         }
-        
-        
-        
-        for (Thread thr : arr) {
-            thr.start();
-        }
-        for (Thread thr : arr) {
-            try {
-                thr.join();
-            } catch (InterruptedException ex) {
-                System.err.println("ex: " +ex);
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-       
-  
+
     }
 
     HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> correlateRV(HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
@@ -181,15 +151,15 @@ public class Dscaler {
                 }
 
             }
-            ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDis, ckJDAvaCounts, originalRVEntry.getValue(), 
-                    scaledJDDis,  mergedDegreeTitle);
+            ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDis, ckJDAvaCounts, originalRVEntry.getValue(),
+                    scaledJDDis, mergedDegreeTitle);
 
             paraRVCorr.originalCoDa = this.originalCoDa;
             paraRVCorr.eveNum = eveNum;
             paraRVCorr.sRatio = this.scaleTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable);
             paraRVCorr.curTable = curTable;
             paraRVCorr.referenceTable = referenceTable;
-            paraRVCorr.mappedBestJointDegree = this.mappedBestJointDegree;
+            paraRVCorr.mappedBestJointDegree = this.norm1JointDegreeMapping;
             paraRVCorr.uniqueNess = uniqueNess;
             Thread thread = new Thread(paraRVCorr);
             threadList.add(thread);
@@ -209,9 +179,9 @@ public class Dscaler {
 
     public void run() throws FileNotFoundException, IOException {
         originalDB.initial_loading(filePath, leading, ignoreFirst, delimiter, Options.loadFK, ".txt", filePath + Configuration.configFile);
-        
+
         this.scaleTableSize = loadSaleTable();
-        
+
         System.gc();
 
         System.out.println("\n===============================Extract ID Counts====================");
@@ -227,17 +197,17 @@ public class Dscaler {
         originalCoDa.calculateKV();
 
         long start = System.currentTimeMillis();
-        System.out.println("====================Scale Distribution======================= ");
+        System.out.println("====================Scale Degree Distribution======================= ");
+        originalCoDa.calculateDegreeDistribution();
         scaleDistribution();
-        //originalCoDa.dropIdFreqDis();
+        originalCoDa.dropIdFreqDis();
+
         System.out.println("======================Process FreCounts====================");
-        //originalCoDa.processIdFrequency();
-        originalCoDa.processJointDis();
+        //originalCoDa.processJointDis();
         originalDB.dropFKs();
         System.gc();
         System.out.println("====================Joint Degree Correlation======================");
-        corrMap();
-       // scaledCoda.dropIdFreqDis();
+        jointDegreeDistributionSynthesis();
 
         System.out.println("====================Computation=======================");
         HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts = new HashMap<>();
@@ -248,16 +218,15 @@ public class Dscaler {
 
         System.err.println("==============================RVC====================================================");
         scaledCoda.rvDis = correlateRV(scaledCoda.jointDegreeDis, originalCoDa.rvDis,
-                originalDB.mergedDegreeTitle,  ckJDAvaCounts,
+                originalDB.mergedDegreeTitle, ckJDAvaCounts,
                 convertUniqueness(originalDB.tableType), jdSumMap, originalDB.fkRelation);
-        
+
         ArrayList<String> keyTables = new ArrayList<>();
         ArrayList<String> refTables = new ArrayList<>();
         ArrayList<String> joinTables = new ArrayList<>();
-       
-        computeKeyRefTables(keyTables, refTables,joinTables, srcJDAvaStats);
-      
-        
+
+        computeKeyRefTables(keyTables, refTables, joinTables, srcJDAvaStats);
+
         System.out.println("====================Print Pure Join Tables==========================");
         localequatingMergedIDs(srcJDAvaStats, this.originalCoDa.reverseJointDegrees, joinTables);
 
@@ -265,7 +234,7 @@ public class Dscaler {
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs = new HashMap<>(); //KEY IS THE DEGREE, VALUE ARE THOSE IDS WITH THE DEGREE
         HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids
                 = assignReferenceTable(this.scaledCoda.rvDis, referencingIDs, srcJDAvaStats, this.originalCoDa.reverseRVs);
-        
+
         System.out.println("================Matching RV & JD id For KV ======================");
         HashMap<String, HashMap<Integer, Integer>> scaledBiMap = new HashMap<>();
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs = new HashMap<>();
@@ -273,9 +242,9 @@ public class Dscaler {
         if (!this.originalCoDa.kvDis.isEmpty()) {
             scaledBiMap = matchBiDegree(referencingIDs, srcJDAvaStats, this.originalCoDa.kvDis, keyVectorIDs, keyTables);
         }
-        this.originalCoDa.dropKVDis(); 
+        this.originalCoDa.dropKVDis();
         System.out.println("====================Localized Key IDs==========================");
-        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs, 
+        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs,
                 this.originalCoDa.reverseKV, keyTables);
         keyVectorIDs = null;
         //reverseKeyDistribution = null;
@@ -305,19 +274,19 @@ public class Dscaler {
             HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts) {
 
         ArrayList<Thread> threadList = new ArrayList<>();
-         int min = Integer.MAX_VALUE;
+        int min = Integer.MAX_VALUE;
         for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : scaledCoda.jointDegreeDis.entrySet()) {
             min = Math.min(min, jointDegreeEntry.getValue().size());
         }
         //System.err.println("this.scaledCoda.jointDegreeDis: " + this.scaledCoda.jointDegreeDis);
         for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeentry : this.scaledCoda.jointDegreeDis.entrySet()) {
             ParaCompAvaStats ppad = new ParaCompAvaStats(jointDegreeentry, srcJDAvaStats, ckJDAvaCounts);
-            if (min < 50){
+            if (min < 50) {
                 ppad.run();
-            } else{
-            Thread thr = new Thread(ppad);
-            threadList.add(thr);
-            thr.start();
+            } else {
+                Thread thr = new Thread(ppad);
+                threadList.add(thr);
+                thr.start();
             }
         }
         for (Thread thr : threadList) {
@@ -361,36 +330,25 @@ public class Dscaler {
 
         return result;
     }
-    boolean staticUp = true;
-
-    String corrFile = "corrFile.txt";
-    String mergeFile = "mergeFile.txt";
-    String reverseMerge = "reverseMerge.txt";
-    String reverseCorr = "reverseCorr.txt";
-    String scaledCorr = "scaledCorrFile.txt";
-    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree = new HashMap<>();
-
-    private void corrMap() {
+ 
+    private void jointDegreeDistributionSynthesis() {
         ArrayList<Thread> threadList = new ArrayList<>();
-        int min = Integer.MAX_VALUE;
-        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : originalCoDa.jointDegreeDis.entrySet()) {
-            min = Math.min(min, jointDegreeEntry.getValue().size());
-        }
-        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry : originalCoDa.jointDegreeDis.entrySet()) {
-            ArrayList<HashMap<Integer, Integer>> scaledIdFreqs = new ArrayList<>();
-            for (ComKey ck : jointDegreeEntry.getKey()) {
-                scaledIdFreqs.add(scaledCoda.idFreqDis.get(ck));
-            }
-            String sourceTable = jointDegreeEntry.getKey().get(0).sourceTable;
+        int minEntryNumber = extractMinEntryNumber();
+
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> jointDegreeEntry : originalCoDa.reverseJointDegrees.entrySet()) {
+            ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions = scaledCoda.extractDegreeDistributions(jointDegreeEntry.getKey());
+
+            String sourceTable = jointDegreeEntry.getKey().get(0).getSourceTable();
+            
             JDCorrelation jdCorrelation = new JDCorrelation(
-                    this.scaledCoda.jointDegreeDis, jointDegreeEntry.getKey(), scaledIdFreqs, jointDegreeEntry.getValue());
-            jdCorrelation.initialize(
-                    scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable), mappedBestJointDegree);
-            if (min < 50){
+                    this.scaledCoda.jointDegreeDis, jointDegreeEntry.getKey(), scaledDegreeDistributions, jointDegreeEntry.getValue());
+            jdCorrelation.initialize(scaleTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable), norm1JointDegreeMapping);
+            
+            if (minEntryNumber < 50) {
                 jdCorrelation.run();
             } else {
-            Thread thread = new Thread(jdCorrelation);
-            threadList.add(thread);
+                Thread thread = new Thread(jdCorrelation);
+                threadList.add(thread);
             }
         }
 
@@ -473,7 +431,6 @@ public class Dscaler {
         }
     }
 
-    
     ArrayList<Thread> idthread = new ArrayList<>();
 
     private HashMap<String, ArrayList<ArrayList<Integer>>> assignReferenceTable(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationDistribution,
@@ -485,7 +442,7 @@ public class Dscaler {
         ArrayList<Thread> threadList = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationEntry : scaledCorrelationDistribution.entrySet()) {
             if (!avaInfo.containsKey(scaledCorrelationEntry.getKey())) {
-                ParaIdAssign paraIdAssign = new ParaIdAssign(scaledCorrelationEntry, scaledCorrelationDistribution,  avaInfo);
+                ParaIdAssign paraIdAssign = new ParaIdAssign(scaledCorrelationEntry, scaledCorrelationDistribution, avaInfo);
                 paraIdAssign.mergedDegreeTitle = originalDB.mergedDegreeTitle;
                 paraIdAssign.reverseRVDistribution = reverseRVDistribution;
                 paraIdAssign.scaleTableSize = this.scaleTableSize;
@@ -493,7 +450,7 @@ public class Dscaler {
                 paraIdAssign.originalDB = this.originalDB;
                 paraIdAssign.referencingTable = originalDB.fkRelation;
                 paraIdAssign.delimiter = this.delimiter;
-                Thread thread=  new Thread(paraIdAssign);
+                Thread thread = new Thread(paraIdAssign);
                 idthread.add(thread);
                 thread.start();
             } else {
@@ -501,7 +458,7 @@ public class Dscaler {
                 paraKeyIdAssign.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
                 paraKeyIdAssign.reverseDistribution = reverseRVDistribution;
                 paraKeyIdAssign.scaleTableSize = this.scaleTableSize;
-                paraKeyIdAssign.delimiter = this.delimiter ;
+                paraKeyIdAssign.delimiter = this.delimiter;
                 Thread thread = new Thread(paraKeyIdAssign);
                 threadList.add(thread);
                 thread.start();;
@@ -573,7 +530,7 @@ public class Dscaler {
             }
         }
 
-        return ;
+        return;
     }
 
     private HashMap<String, Boolean> convertUniqueness(HashMap<String, String> tableType) {
@@ -589,7 +546,7 @@ public class Dscaler {
     }
 
     private void computeKeyRefTables(ArrayList<String> keyTables, ArrayList<String> refTables, ArrayList<String> joinTables, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats) {
-      for (String entry : this.scaledCoda.rvDis.keySet()) {
+        for (String entry : this.scaledCoda.rvDis.keySet()) {
             refTables.add(entry);
         }
 
@@ -600,7 +557,8 @@ public class Dscaler {
             } else {
                 joinTables.add(table);
             }
-        }}
+        }
+    }
 
     void setInitials(String delimiter, boolean ignoreFirst, String dynamicSFile, String filePath, String outPath, double staticS, int leading) {
         this.delimiter = delimiter;
@@ -610,6 +568,14 @@ public class Dscaler {
         this.outPath = outPath;
         this.staticS = staticS;
         this.leading = leading;
+    }
+
+    private int extractMinEntryNumber() {
+        int min = Integer.MAX_VALUE;
+        for (Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> jointDegreeEntry : originalCoDa.reverseJointDegrees.entrySet()) {
+            min = Math.min(min, jointDegreeEntry.getValue().size());
+        }
+        return min;
     }
 
 }
