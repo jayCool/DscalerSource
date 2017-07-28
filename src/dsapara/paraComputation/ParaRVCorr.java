@@ -4,6 +4,7 @@ import db.structs.ComKey;
 import dscaler.dataStruct.CoDa;
 
 import dsapara.Sort;
+import dscaler.dataStruct.AvaliableStatistics;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,45 +24,41 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ParaRVCorr implements Runnable {
 
-    public boolean eveNum = true;
-    HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts;
-    HashMap<ArrayList<ArrayList<Integer>>, Integer> originalRVDis;
-    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis;
+    HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats;
+    HashMap<ArrayList<ArrayList<Integer>>, Integer> originalRVDistribution;
+    HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJointDegreeDistribution;
     HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
-    String ekey;
     HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDisMap;
-    HashSet<ArrayList<ArrayList<Integer>>> boundTrash = new HashSet<>();
+    HashSet<ArrayList<ArrayList<Integer>>> overBoundedRVs = new HashSet<>();
     HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap = new HashMap<>();
-    HashMap<ArrayList<ArrayList<Integer>>, Integer> allBounds = new HashMap<>();
+    HashMap<ArrayList<ArrayList<Integer>>, Integer> previouslyCalculatedBound = new HashMap<>();
     boolean terminated = false;
     public double sRatio;
     double sE = 0;
 
     public String curTable;
-    public HashMap<String, ArrayList<ComKey>> referenceTable;
+    public HashMap<String, ArrayList<ComKey>> referencingComKeyMap;
     int budget = 0;
     int iteration = 0;
     int indexcount = 0;
     long starterRandom = 0;
     int thresh = 5;
-    boolean[] fk1;
-    boolean[] fk2;
 
-    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> mappedBestJointDegree;
+    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMapping;
     public HashMap<String, Boolean> uniqueNess;
     public CoDa originalCoDa;
-    ArrayList<List<Entry<ArrayList<Integer>, Integer>>> sortedJDs = new ArrayList<>();
-    ArrayList<ArrayList<Boolean>> fks = new ArrayList<>();
+    ArrayList<Integer> jointDegreeAvaIndexes = new ArrayList<>();
+    ArrayList<String> referencedTables = new ArrayList<>();
 
     public ParaRVCorr(HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDisMap,
-            HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts,
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
             HashMap<ArrayList<ArrayList<Integer>>, Integer> originalRVDis,
             HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> scaledJDDis,
             HashMap<String, ArrayList<ComKey>> mergedDegreeTitle) {
-        this.ckJDAvaCounts = ckJDAvaCounts;
-        this.originalRVDis = originalRVDis;
-        this.scaledJDDis = scaledJDDis;
+        this.jointDegreeAvaStats = jointDegreeAvaStats;
+        this.originalRVDistribution = originalRVDis;
+        this.scaledJointDegreeDistribution = scaledJDDis;
         this.mergedDegreeTitle = mergedDegreeTitle;
         this.scaledRVDisMap = scaledRVDisMap;
         this.jdSumMap = jdSumMap;
@@ -69,598 +66,357 @@ public class ParaRVCorr implements Runnable {
 
     @Override
     public void run() {
+        calculateJDAvaIndexes();
+
         scaledRVDisMap.put(this.curTable, rvCorrelation());
         terminated = true;
 
     }
-
+    
+    /**
+     * RV Correlation
+     * @return 
+     */
     private HashMap<ArrayList<ArrayList<Integer>>, Integer> rvCorrelation() {
-        HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis = new HashMap<>();
+        HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution = new HashMap<>();
 
-        ArrayList<ArrayList<ComKey>> comkeys = new ArrayList<>();
-        sortJDBasedOnValue(comkeys);
-        List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRV = sortRVBasedOnJDAppearance(comkeys);
+        ArrayList<ArrayList<ComKey>> comkeys = calculateCKsOfReferencedTable();
 
-        correlateRV(scaledRVDis, sortedRV);
+        List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRVDistribution = sortRVBasedOnJDAppearance(comkeys);
 
-        while (iteration < 4 && checkAvaCoutsNotEmpty()) {
-            correlateRV(scaledRVDis, sortedRV);
+        rvCorrelationOneLoop(scaledRVDistribution, sortedRVDistribution);
+
+        while (iteration < 4 && checkAvailableJD()) {
+            rvCorrelationOneLoop(scaledRVDistribution, sortedRVDistribution);
         }
 
         iteration = 5;
-        if (checkAvaCoutsNotEmpty()) {
-            System.err.println("sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
-            System.err.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
-            System.err.println(this.curTable + ": is not empty!");
-        }
-        if (sortedRV.get(0).getKey().size() >= 3) {
-            if (checkAvaCoutsNotEmpty()) {
-                randomRoundEffiThreeKeys(scaledRVDis);
-            }
-        }
-        if (checkAvaCoutsNotEmpty()) {
-            System.out.println("here : sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
-            System.out.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
-            System.out.println(this.curTable + ": is not empty!");
+
+        if (checkAvailableJD()) {
+            randomRoundEffi(scaledRVDistribution);
         }
 
-        if (sortedRV.get(0).getKey().size() == 2) {
-            if (checkAvaCoutsNotEmpty()) {
-                randomRoundEffiTwoKey(scaledRVDis);
-            }
-        }
-        if (sortedRV.get(0).getKey().size() == 1) {
-            if (checkAvaCoutsNotEmpty()) {
-                randomRoundEffiOneKey(scaledRVDis);
-            }
+        if (checkAvailableJD()) {
+            randomSwapEffi(scaledRVDistribution);
         }
 
-        if (sortedRV.get(0).getKey().size() == 2) {
-            if (checkAvaCoutsNotEmpty()) {
-                randomSwapEffi(scaledRVDis);
-            }
-        }
-
-        if (checkAvaCoutsNotEmpty()) {
-            System.err.println("sortedRV.get(0).getKey(): " + sortedRV.get(0).getKey());
-            System.err.println(ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)));
-            System.err.println(this.curTable + ": is not empty!");
-        }
-
-        return scaledRVDis;
+        return scaledRVDistribution;
     }
+    
+    /**
+     * This method forms two new RVs
+     * @param pair1
+     * @param pair2
+     * @param rv
+     * @param originalRV
+     * @param replacingIndex
+     * @return 
+     */
+    private void formTwoNewRVs(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2,
+            ArrayList<ArrayList<Integer>> rv, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV, int replacingIndex) {
 
-    private boolean twoElement(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2,
-            ArrayList<ArrayList<Integer>> rv, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis, int k, int arrSize) {
-        if (arrSize != conScaledRVDis.getKey().size()) {
-            return false;
-        }
-        for (int i = 0; i < k; i++) {
+        for (int i = 0; i < replacingIndex; i++) {
             pair1.add(rv.get(i));
-            pair2.add(conScaledRVDis.getKey().get(i));
+            pair2.add(originalRV.getKey().get(i));
         }
-        pair2.add(rv.get(k));
-        pair1.add(conScaledRVDis.getKey().get(k));
+        pair2.add(rv.get(replacingIndex));
+        pair1.add(originalRV.getKey().get(replacingIndex));
 
-        for (int i = k + 1; i < arrSize; i++) {
+        for (int i = replacingIndex + 1; i < rv.size(); i++) {
             pair1.add(rv.get(i));
-            pair2.add(conScaledRVDis.getKey().get(i));
+            pair2.add(originalRV.getKey().get(i));
         }
-        return true;
+        return ;
+    }
+    
+    /**
+     * This method calculates the maximal allowed incremental frequency for reforming RVs.
+     * @param pair1
+     * @param pair2
+     * @param concurrentScaledRVDis
+     * @param bound1
+     * @param bound2
+     * @param originalRV
+     * @param incrementalFrequency
+     * @return 
+     */
+    private int calculateLegalIncrementalFrequency(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2,
+            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis,
+            int bound1, int bound2, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV, int incrementalFrequency) {
+
+        int originalRVFrequency = concurrentScaledRVDis.get(originalRV.getKey());
+        
+        if (!concurrentScaledRVDis.containsKey(pair1)) {
+            concurrentScaledRVDis.put(pair1, 0);
+        }
+        if (!concurrentScaledRVDis.containsKey(pair2)) {
+            concurrentScaledRVDis.put(pair2, 0);
+        }
+        
+        int legalIncrementalFrequency = Math.min(bound1 - concurrentScaledRVDis.get(pair1), bound2 - concurrentScaledRVDis.get(pair2));
+        legalIncrementalFrequency = Math.min(legalIncrementalFrequency, originalRVFrequency);
+        legalIncrementalFrequency = Math.min(legalIncrementalFrequency, incrementalFrequency);
+        return legalIncrementalFrequency;
     }
 
-    private int ivConstraint(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2,
-            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis,
-            int bound1, int bound2, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry, int val) {
+    /**
+     * Statistics update for RVs reforming
+     * @param rv
+     * @param pair1
+     * @param pair2
+     * @param legalIncrementalFrequency
+     * @param incrementalFrequency
+     * @param bound1
+     * @param bound2
+     * @param concurrentScaledRVDis
+     * @return 
+     */
+    private int updateReformingStatistics(ArrayList<ArrayList<Integer>> rv, ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2, 
+            int legalIncrementalFrequency, int incrementalFrequency, int bound1, int bound2, 
+            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis) {
+        concurrentScaledRVDis.put(pair1, legalIncrementalFrequency + concurrentScaledRVDis.get(pair1));
+        concurrentScaledRVDis.put(pair2, legalIncrementalFrequency + concurrentScaledRVDis.get(pair2));
 
-        int totalValue = conScaledRVDis.get(entry.getKey());
-        if (!conScaledRVDis.containsKey(pair1)) {
-            conScaledRVDis.put(pair1, 0);
-        }
-        if (!conScaledRVDis.containsKey(pair2)) {
-            conScaledRVDis.put(pair2, 0);
-        }
-        int v1 = bound1 - conScaledRVDis.get(pair1);
-        int v2 = bound2 - conScaledRVDis.get(pair2);
-        int minValue = Math.min(v1, v2);
-        minValue = Math.min(minValue, totalValue);
-        minValue = Math.min(minValue, val);
-        return minValue;
+        incrementalFrequency = incrementalFrequency - legalIncrementalFrequency;
+        updateStatisticsForRandom(rv, legalIncrementalFrequency);
+        
+        return incrementalFrequency;
     }
-
-    private int updateCon(ArrayList<ArrayList<Integer>> pair1, ArrayList<ArrayList<Integer>> pair2, int vsub, int val, int bound1, int bound2, ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> con) {
-        con.put(pair1, vsub + con.get(pair1));
-        con.put(pair2, vsub + con.get(pair2));
-
-        val = val - vsub;
-
-        if (bound1 < con.get(pair1)) {
-            System.err.println("pair1: " + pair1 + "    " + bound1 + "  " + con.get(pair1));
-        }
-        if (bound2 < con.get(pair2)) {
-            System.err.println("pair2: " + pair2 + "    " + bound2 + "  " + con.get(pair2));
-        }
-        return val;
-    }
-
-    private void correlateRV(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis,
-            List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRV) {
+    
+    
+    /**
+     * Forming the RVs by looping the originalRVDistribution
+     * @param scaledRVDistribution
+     * @param sortedRVDistribution 
+     */
+    private void rvCorrelationOneLoop(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution,
+            List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRVDistribution) {
         iteration++;
-        for (int i = 0; i < sortedRV.size() && checkAvaCoutsNotEmpty(); i++) {
+        for (int i = 0; i < sortedRVDistribution.size(); i++) {
 
-            int frequency = this.originalCoDa.rvDis.get(this.curTable).get(sortedRV.get(i).getKey());
+            int frequency = this.originalCoDa.rvDis.get(this.curTable).get(sortedRVDistribution.get(i).getKey());
 
             if (frequency == 0) {
                 continue;
             }
 
-            frequency = calFreq(frequency);
+            int incrementalFrequency = calExpectedFrequency(frequency);
 
-            if (!eveNum || (this.eveNum && this.checkSocial(sortedRV.get(i).getKey()))) {
-                if (iteration == 1) {
-                    initialUpdateValue(sortedRV.get(i).getKey(), scaledRVDis, frequency);
-                }
-                if (iteration != 1) {
-                    updateValue(sortedRV.get(i).getKey(), scaledRVDis, frequency);
-                }
+            if (incrementalFrequency == 0) {
+                continue;
+            }
+
+            if (iteration == 1) {
+                perfectRVCorrelationOneStep(sortedRVDistribution.get(i).getKey(), scaledRVDistribution, incrementalFrequency);
+            }
+            if (iteration != 1) {
+                normalRVCorrelationOneStep(sortedRVDistribution.get(i).getKey(), scaledRVDistribution, incrementalFrequency);
             }
         }
 
     }
+    
+     /**
+     * This synthesis use the original RV
+     * @param originalRV
+     * @param scaledRVDistribution
+     * @param incrementalFrequency 
+     */
+    private void perfectRVCorrelationOneStep(ArrayList<ArrayList<Integer>> originalRV,
+            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution, int incrementalFrequency) {
 
-    private void updateValue(ArrayList<ArrayList<Integer>> originalRV,
-            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis, int frequency) {
-
-        boolean mappedBestFlag = checkAppearBest(originalRV);
-        if (!mappedBestFlag) {
+        if (!checkPerfectMatching(originalRV)) {
             return;
         }
+
+        synthesizeRV(originalRV, incrementalFrequency, originalRV, scaledRVDistribution);
+        return;
+    }
+    
+    /**
+     * Different from perfectRVCorrelationOneStep,
+     * This method forms the RV normally.
+     * @param originalRV
+     * @param scaledRVDistribution
+     * @param incrementalFrequency 
+     */
+    private void normalRVCorrelationOneStep(ArrayList<ArrayList<Integer>> originalRV,
+            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution, int incrementalFrequency) {
+
         ArrayList<ArrayList<ArrayList<Integer>>> rvSet = new ArrayList<>();
-        int totalNum = compRVSet(originalRV, rvSet);
-        if (totalNum == -1) {
-            return;
-        }
+        int totalPermutationNumber = calculateRVSet(originalRV, rvSet);
 
-        budget = frequency;
+        budget = incrementalFrequency;
         this.starterRandom = -1;
-        while (starterRandom < totalNum - 1 && budget > 0 && totalNum > 0) {
+        while (starterRandom < totalPermutationNumber - 1 && budget > 0) {
             starterRandom++;
 
-            ArrayList<ArrayList<Integer>> calDegrees = fetchSingle(totalNum, rvSet, originalRV);
-            if (calDegrees.size() == 0) {
+            ArrayList<ArrayList<Integer>> calculatedRV = fetchSingleRV(totalPermutationNumber, rvSet, originalRV);
+
+            if (calculatedRV.size() == 0) {
                 continue;
             }
-            if (this.starterRandom >= totalNum) {
+            if (this.starterRandom >= totalPermutationNumber) {
                 break;
             }
 
-            boolean flag = checkDegreeValid(calDegrees);
-            if (!flag) {
+            if (!checkPerfectMatching(calculatedRV)) {
                 continue;
             }
 
-            processCalDegrees(calDegrees, frequency, originalRV, scaledRVDis);
+            synthesizeRV(calculatedRV, incrementalFrequency, originalRV, scaledRVDistribution);
 
         }
 
         return;
     }
-
-    private boolean checkAvaCoutsNotEmpty() {
-        for (ComKey ck : referenceTable.get(this.curTable)) {
-            ArrayList<ArrayList<Integer>> zeroKeys = new ArrayList<>();
-            for (ArrayList<Integer> key : ckJDAvaCounts.get(ck).keySet()) {
-                if (ckJDAvaCounts.get(ck).get(key) == 0) {
-                    zeroKeys.add(key);
-                }
-            }
-            for (ArrayList<Integer> key : zeroKeys) {
-                ckJDAvaCounts.get(ck).remove(key);
-            }
-        }
-        return ckJDAvaCounts.containsKey(this.referenceTable.get(this.curTable).get(0)) && !ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(0)).isEmpty();
-    }
-
-    private int calFreq(Integer frequency) {
+    
+    /**
+     * Calculates the expected frequency
+     * @param frequency
+     * @return expected frequency 
+     */
+    private int calExpectedFrequency(Integer frequency) {
         int result = (int) (frequency * sRatio * (1 + Math.max(0, sE)));
         double difff = frequency * sRatio * (1 + Math.max(0, sE)) - result;
-        double kl = Math.random();
-        if (kl < difff) {
+        if (Math.random() < difff) {
             result++;
         }
         return result;
     }
-
-    private void initialUpdateValue(ArrayList<ArrayList<Integer>> originalRV,
-            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis, int frequency) {
-
-        if (!checkDegreeValid(originalRV)) {
-            return;
-        }
-        processCalDegrees(originalRV, frequency, originalRV, scaledRVDis);
-        return;
-    }
-
-    private void updateIndividualValue(ArrayList<ArrayList<Integer>> calDegrees,
-            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis, int frequency,
+    
+   
+    
+    /**
+     * Updates the statistics
+     * @param calculatedRV
+     * @param scaledRVDistribution
+     * @param incrementalFrequency
+     * @param originalRV 
+     */
+    private void updateStatistics(ArrayList<ArrayList<Integer>> calculatedRV,
+            HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution, int incrementalFrequency,
             ArrayList<ArrayList<Integer>> originalRV) {
 
-        int oldV = 0;
-        if (scaledRVDis.containsKey(calDegrees)) {
-            oldV = scaledRVDis.get(calDegrees);
+        int oldFrequency = 0;
+        if (scaledRVDistribution.containsKey(calculatedRV)) {
+            oldFrequency = scaledRVDistribution.get(calculatedRV);
         }
 
         if (this.uniqueNess.get(curTable)) {
-            int bound = calUperBound(calDegrees);
-
-            if (oldV + frequency >= bound) {
-                this.allBounds.remove(calDegrees);
-                this.boundTrash.add(calDegrees);
-                frequency = bound - oldV;
-            }
+            incrementalFrequency = calculateIncrementalFrequencyByUniqueness(calculatedRV, incrementalFrequency, oldFrequency);
         }
 
-        if (eveNum && checkEQ(calDegrees.get(0), calDegrees.get(1))) {
-            frequency = frequency / 2;
-        }
-
-        if (frequency <= 0) {
+        if (incrementalFrequency <= 0) {
             return;
         }
 
-        scaledRVDis.put(calDegrees, frequency + oldV);
+        scaledRVDistribution.put(calculatedRV, incrementalFrequency + oldFrequency);
 
-        for (int k = 0; k < calDegrees.size(); k++) {
-            int v = ckJDAvaCounts.get(referenceTable.get(curTable).get(k)).get(calDegrees.get(k));
-            ckJDAvaCounts.get(referenceTable.get(curTable).get(k)).put(calDegrees.get(k), v - frequency);
-        }
-        if (this.eveNum && this.checkEQ(calDegrees.get(0), calDegrees.get(1))) {
-            budget = budget - 2 * frequency;
-        } else {
-            budget = budget - frequency;
-        }
+        updateJointDegreeAvaStats(calculatedRV, incrementalFrequency);
 
-        for (int k = 0; k < calDegrees.size(); k++) {
-            if (checkAvaCounts(calDegrees.get(k), k)) {
-                ckJDAvaCounts.get(referenceTable.get(curTable).get(k)).remove(calDegrees.get(k));
+        budget = budget - incrementalFrequency;
 
-                String sourceTable = this.referenceTable.get(curTable).get(k).sourceTable;
-
-                if (this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).containsKey(originalRV.get(k))) {
-                    if (this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).get(originalRV.get(k)).contains(calDegrees.get(k))) {
-                        this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).get(originalRV.get(k)).remove(calDegrees.get(k));
-                    }
-                }
-                cleanDistanceMapD(k, calDegrees.get(k));
-            }
-        }
-    }
-
-    private boolean checkSocial(ArrayList<ArrayList<Integer>> calDegrees) {
-        return !eveNum || (eveNum && checkOrder(calDegrees));
+        cleanNorm1AndDistanceMap(calculatedRV, originalRV);
 
     }
-
-    private int calUperBound(ArrayList<ArrayList<Integer>> calDegrees) {
+    
+   /**
+    * 
+    * @param calculatedRV
+    * @return maximal allowed frequency
+    */
+    private int calculateFrequencyUpperBound(ArrayList<ArrayList<Integer>> calculatedRV) {
         int bound = 1;
 
-        if (this.allBounds.containsKey(calDegrees)) {
-            bound = this.allBounds.get(calDegrees);
-        } else if (calDegrees.size() == 1) {
+        if (previouslyCalculatedBound.containsKey(calculatedRV)) {
+            bound = this.previouslyCalculatedBound.get(calculatedRV);
+        } else if (calculatedRV.size() == 1) {
             bound = Integer.MAX_VALUE;
         } else {
-            for (int t = 0; t < calDegrees.size(); t++) {
-                String sourceTable = this.referenceTable.get(curTable).get(t).sourceTable;
-                if (bound >= Integer.MAX_VALUE / scaledJDDis.get(this.mergedDegreeTitle.get(sourceTable)).get(calDegrees.get(t))) {
+            for (int t = 0; t < calculatedRV.size(); t++) {
+                String sourceTable = this.referencingComKeyMap.get(curTable).get(t).sourceTable;
+                if (bound >= Integer.MAX_VALUE / scaledJointDegreeDistribution.get(this.mergedDegreeTitle.get(sourceTable)).get(calculatedRV.get(t))) {
                     bound = Integer.MAX_VALUE;
+                    break;
                 } else {
-                    bound = bound * scaledJDDis.get(this.mergedDegreeTitle.get(sourceTable)).get(calDegrees.get(t));
+                    bound = bound * scaledJointDegreeDistribution.get(this.mergedDegreeTitle.get(sourceTable)).get(calculatedRV.get(t));
                 }
             }
-            allBounds.put(calDegrees, bound);
+            previouslyCalculatedBound.put(calculatedRV, bound);
         }
 
         return bound;
     }
 
-    private boolean checkAvaCounts(ArrayList<Integer> degree, int k) {
-        return (ckJDAvaCounts.get(referenceTable.get(curTable).get(k)).containsKey(degree) && ckJDAvaCounts.get(referenceTable.get(curTable).get(k)).get(degree) == 0);
-    }
-
-    private int degreeSum(ArrayList<Integer> degree) {
-        int insum = 0;
-        for (int jj : degree) {
-            insum += jj;
-        }
-        return insum;
-    }
-
-    private void cleanDistanceMapD(int k, ArrayList<Integer> calDegrees) {
-        int insum = degreeSum(calDegrees);
-        ComKey ck = referenceTable.get(curTable).get(k);
-        if (jdSumMap.containsKey(ck) && jdSumMap.get(ck).containsKey(insum)) {
-            this.jdSumMap.get(referenceTable.get(curTable).get(k)).get(insum).remove(calDegrees);
-            if (this.jdSumMap.get(referenceTable.get(curTable).get(k)).get(insum).isEmpty()) {
-                this.jdSumMap.get(referenceTable.get(curTable).get(k)).remove(insum);
-            }
-        }
-
-    }
-
-    boolean earlyStop = true;
-
-    private boolean checkDegreeValid(ArrayList<ArrayList<Integer>> calDegrees) {
-        for (int i = 0; i < calDegrees.size(); i++) {
-            if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(i)).containsKey(calDegrees.get(i))) {
+    /**
+     *
+     * @param originalRV
+     * @return if the scaled joint-degree distribution contains the calculated
+     * referencing vector
+     */
+    private boolean checkPerfectMatching(ArrayList<ArrayList<Integer>> originalRV) {
+        for (int i = 0; i < originalRV.size(); i++) {
+            if (!jointDegreeAvaStats.get(referencingComKeyMap.get(curTable).get(i).getSourceTable()).containsKey(originalRV.get(i))) {
                 return false;
             }
         }
         return true;
     }
+    
+    /**
+     * Synthesize new RVs
+     * @param calculatedRV
+     * @param incrementalFrequency
+     * @param originalRV
+     * @param scaledRVDistribution 
+     */
+    private void synthesizeRV(ArrayList<ArrayList<Integer>> calculatedRV, int incrementalFrequency,
+            ArrayList<ArrayList<Integer>> originalRV, HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution) {
 
-    private void processCalDegrees(ArrayList<ArrayList<Integer>> calDegrees, int frequency,
-            ArrayList<ArrayList<Integer>> originalRV, HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-        for (int i = 0; i < calDegrees.size(); i++) {
-            frequency = Math.min(frequency, ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(i)).get(calDegrees.get(i)));
-        }
+        incrementalFrequency = calculateAvaliableFrequency(calculatedRV, incrementalFrequency);
 
-        if (!this.uniqueNess.get(curTable) || !this.boundTrash.contains(calDegrees) && checkSocial(calDegrees)) {
-            updateIndividualValue(calDegrees, scaledRVDis, frequency, originalRV);
-            frequency = this.budget;
-        }
-
-    }
-
-    private void randomRoundEffiTwoKey(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
-            conScaledRVDis.put(entry.getKey(), entry.getValue());
-        }
-        ConcurrentHashMap<ArrayList<Integer>, Integer> fk1IdSet = new ConcurrentHashMap<>();
-        ConcurrentHashMap<ArrayList<Integer>, Integer> fk2IdSet = new ConcurrentHashMap<>();
-        computeFKidSet(fk1IdSet, fk2IdSet);
-
-        String table1 = this.referenceTable.get(curTable).get(0).sourceTable;
-        String table2 = this.referenceTable.get(curTable).get(1).sourceTable;
-        ComKey ck1 = referenceTable.get(curTable).get(0);
-        ComKey ck2 = referenceTable.get(curTable).get(1);
-
-        long uniqBound = Integer.MAX_VALUE;
-        starterRandom = 0;
-        for (ArrayList<Integer> first : fk1IdSet.keySet()) {
-            for (ArrayList<Integer> second : fk2IdSet.keySet()) {
-                if (!ckJDAvaCounts.get(ck1).containsKey(first) || ckJDAvaCounts.get(ck1).get(first) == 0) {
-                    break;
-                }
-                if (!ckJDAvaCounts.get(ck2).containsKey(second) || ckJDAvaCounts.get(ck2).get(second) == 0) {
-                    fk2IdSet.remove(second);
-                    continue;
-                }
-
-                int avaCount = Math.min(ckJDAvaCounts.get(ck1).get(first), ckJDAvaCounts.get(ck2).get(second));
-
-                uniqBound = computeUniqBound(table1, table2, first, second);
-
-                ArrayList<ArrayList<Integer>> rv = new ArrayList<>();
-                rv.add(first);
-                rv.add(second);
-                int usedFrequency = processNewEdges(avaCount, rv, conScaledRVDis, uniqBound);
-
-                if (usedFrequency == 0) {
-                    continue;
-                }
-
-                updateDistribution(rv, usedFrequency);
-            }
-
-        }
-
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : conScaledRVDis.entrySet()) {
-            scaledRVDis.put(entry.getKey(), entry.getValue());
+        if (!this.uniqueNess.get(curTable) || !this.overBoundedRVs.contains(calculatedRV)) {
+            updateStatistics(calculatedRV, scaledRVDistribution, incrementalFrequency, originalRV);
         }
     }
+    
+  
 
-    private void randomSwapEffi(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
-            conScaledRVDis.put(entry.getKey(), entry.getValue());
+    /**
+     *
+     * @param incrementalFrequency
+     * @param rv
+     * @param concurrentScaledRVDis
+     * @param uniquenessBound
+     * @return newly calculated incrementalFrequency
+     */
+    private int synthesizeNewRV(int incrementalFrequency, ArrayList<ArrayList<Integer>> rv,
+            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis,
+            long uniquenessBound) {
+        int oldFrequency = 0;
+        if (concurrentScaledRVDis.containsKey(rv) && concurrentScaledRVDis.get(rv) < uniquenessBound) {
+            oldFrequency = concurrentScaledRVDis.get(rv);
         }
-        ConcurrentHashMap<ArrayList<Integer>, Integer> fk1IdSet = new ConcurrentHashMap<>();
-        ConcurrentHashMap<ArrayList<Integer>, Integer> fk2IdSet = new ConcurrentHashMap<>();
+        incrementalFrequency = (int) Math.min(incrementalFrequency, uniquenessBound - oldFrequency);
+        concurrentScaledRVDis.put(rv, oldFrequency + incrementalFrequency);
 
-        computeFKidSet(fk1IdSet, fk2IdSet);
-
-        starterRandom = 0;
-        for (ArrayList<Integer> first : fk1IdSet.keySet()) {
-            for (ArrayList<Integer> second : fk2IdSet.keySet()) {
-                if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).containsKey(first) || ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first) == 0) {
-                    break;
-                }
-                if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(1)).containsKey(second) || ckJDAvaCounts.get(referenceTable.get(curTable).get(1)).get(second) == 0) {
-                    fk2IdSet.remove(second);
-                    continue;
-                }
-                int avaCount = Math.min(ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first), ckJDAvaCounts.get(referenceTable.get(curTable).get(1)).get(second));
-
-                for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV : conScaledRVDis.entrySet()) {
-                    if (originalRV.getValue() == 0 || originalRV.getKey().size() == 0) {
-                        break;
-                    }
-
-                    ArrayList<ArrayList<Integer>> rv = new ArrayList<>();
-                    rv.add(first);
-                    rv.add(second);
-
-                    avaCount = loopPairs(rv, originalRV, 2, avaCount, conScaledRVDis);
-
-                    if (avaCount == 0) {
-                        break;
-                    }
-                }
-
-            }
-
+        if (concurrentScaledRVDis.get(rv) == this.previouslyCalculatedBound.get(rv)) {
+            this.previouslyCalculatedBound.remove(rv);
+            overBoundedRVs.add(rv);
         }
 
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : conScaledRVDis.entrySet()) {
-            scaledRVDis.put(entry.getKey(), entry.getValue());
-        }
+        return incrementalFrequency;
     }
 
-    private void randomRoundEffiOneKey(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-
-        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
-            conScaledRVDis.put(entry.getKey(), entry.getValue());
-        }
-        ConcurrentHashMap<ArrayList<Integer>, Integer> fk1IdSet = new ConcurrentHashMap<>();
-
-        for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
-            for (ArrayList<Integer> key : ckJDAvaCounts.get(referenceTable.get(curTable).get(i)).keySet()) {
-                if (i == 0) {
-                    fk1IdSet.put(key, 1);
-                }
-            }
-        }
-
-        for (ArrayList<Integer> first : fk1IdSet.keySet()) {
-            if (!ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).containsKey(first)
-                    || ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first) == 0) {
-                break;
-            }
-            int avaCount = ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).get(first);
-
-            ArrayList<ArrayList<Integer>> rv = new ArrayList<>();
-            rv.add(first);
-            int old = 0;
-            if (conScaledRVDis.containsKey(rv)) {
-                old = conScaledRVDis.get(rv);
-            }
-            conScaledRVDis.put(rv, old + avaCount);
-            ckJDAvaCounts.get(referenceTable.get(curTable).get(0)).remove(first);
-        }
-
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : conScaledRVDis.entrySet()) {
-            scaledRVDis.put(entry.getKey(), entry.getValue());
-        }
-    }
-
-    private int findUniqBound(ArrayList<ArrayList<Integer>> preVdegrees) {
-        int bound1 = 1;
-
-        if (this.allBounds.containsKey(preVdegrees)) {
-            bound1 = this.allBounds.get(preVdegrees);
-        } else if (preVdegrees.size() == 1) {
-            bound1 = Integer.MAX_VALUE;
-        } else {
-            for (int t = 0; t < preVdegrees.size(); t++) {
-                String sourceTable = this.referenceTable.get(curTable).get(t).sourceTable;
-                if (bound1 >= Integer.MAX_VALUE / scaledJDDis.get(this.mergedDegreeTitle.get(sourceTable)).get(preVdegrees.get(t))) {
-                    bound1 = Integer.MAX_VALUE;
-                } else {
-                    bound1 *= scaledJDDis.get(this.mergedDegreeTitle.get(sourceTable)).get(preVdegrees.get(t));
-                }
-            }
-            allBounds.put(preVdegrees, bound1);
-        }
-        return bound1;
-    }
-
-    private int processNewEdges(int avaCount, ArrayList<ArrayList<Integer>> rv,
-            ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis,
-            long uniqBound) {
-        int usedFrequency = 0;
-        if (conScaledRVDis.containsKey(rv) && conScaledRVDis.get(rv) < uniqBound) {
-            int oldFreq = conScaledRVDis.get(rv);
-            usedFrequency = (int) Math.min(avaCount, uniqBound - oldFreq);
-            if (this.eveNum && checkEQ(rv.get(0), rv.get(1))) {
-                usedFrequency = usedFrequency / 2;
-            }
-            conScaledRVDis.put(rv, oldFreq + usedFrequency);
-        } else if (!conScaledRVDis.containsKey(rv)) {
-            usedFrequency = (int) Math.min(avaCount, uniqBound);
-            if (this.eveNum && this.checkEQ(rv.get(0), rv.get(1))) {
-                usedFrequency = usedFrequency / 2;
-            }
-            conScaledRVDis.put(rv, usedFrequency);
-        }
-
-        if (conScaledRVDis.get(rv) == this.allBounds.get(rv)) {
-            this.allBounds.remove(rv);
-            boundTrash.add(rv);
-        }
-        return usedFrequency;
-    }
-
-    private void updateDegrees(ArrayList<ArrayList<Integer>> preVdegrees, int vsub) {
-        for (int t = 0; t < preVdegrees.size(); t++) {
-            int vv = ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).get(preVdegrees.get(t));
-            if (vv - vsub == 0) {
-                ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).remove(preVdegrees.get(t));
-            } else {
-                ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).put(preVdegrees.get(t), vv - vsub);
-            }
-        }
-        return;
-    }
-
-    private boolean checkOrder(ArrayList<ArrayList<Integer>> calDegrees) {
-        ArrayList<Integer> first = calDegrees.get(0);
-        ArrayList<Integer> second = calDegrees.get(1);
-        for (int i = 0; i < first.size(); i++) {
-            if (first.get(i) > second.get(i)) {
-                return false;
-            } else if (first.get(i) < second.get(i)) {
-                return true;
-            }
-        }
-        return true;
-    }
-
-    private boolean checkStrictGreat(ArrayList<ArrayList<Integer>> calDegrees) {
-        ArrayList<Integer> first = calDegrees.get(0);
-        ArrayList<Integer> second = calDegrees.get(1);
-        for (int i = 0; i < first.size(); i++) {
-            if (first.get(i) > second.get(i)) {
-                return true;
-            } else if (first.get(i) < second.get(i)) {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    private boolean checkStrictEqual(ArrayList<ArrayList<Integer>> calDegrees) {
-        ArrayList<Integer> first = calDegrees.get(0);
-        ArrayList<Integer> second = calDegrees.get(1);
-        if (first.equals(second)) {
-            return true;
-        }
-        return false;
-    }
-
-    private boolean checkStrictLess(ArrayList<ArrayList<Integer>> calDegrees) {
-        ArrayList<Integer> first = calDegrees.get(0);
-        ArrayList<Integer> second = calDegrees.get(1);
-        for (int i = 0; i < first.size(); i++) {
-            if (first.get(i) > second.get(i)) {
-                return false;
-            } else if (first.get(i) < second.get(i)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean checkEQ(ArrayList<Integer> get, ArrayList<Integer> get0) {
-        for (int i = 0; i < get.size(); i++) {
-            if (!get.get(i).equals(get0.get(i))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
+    
+    /**
+     * Calculate the prodution of the array,
+     * For enumerating RV purpose
+     * @param rvSet
+     * @param i
+     * @return 
+     */
     private int calIndexSize(ArrayList<ArrayList<ArrayList<Integer>>> rvSet, int i) {
         int size = 1;
         for (int k = i + 1; k < rvSet.size(); k++) {
@@ -668,55 +424,65 @@ public class ParaRVCorr implements Runnable {
         }
         return size;
     }
-
-    private int loopPairs(ArrayList<ArrayList<Integer>> rv, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV,
-            int arrSize, int avaCount, ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis) {
-        for (int k = 0; k < arrSize; k++) {
+    
+    
+    /**
+     * This method breaks the oldRV, candidateRV and
+     * forms two new RVs
+     * 
+     * @param rv
+     * @param originalRV
+     * @param incrementalFrequency
+     * @param concurrentScaledRVDis
+     * @return leftOverFrequency
+     */
+    private int breakAndFormPairs(ArrayList<ArrayList<Integer>> rv, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV,
+            int incrementalFrequency, ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis) {
+        for (int replacingIndex = 0; replacingIndex < rv.size(); replacingIndex++) {
             ArrayList<ArrayList<Integer>> pair1 = new ArrayList<>();
             ArrayList<ArrayList<Integer>> pair2 = new ArrayList<>();
 
-            boolean rfa = twoElement(pair1, pair2, rv, originalRV, k, arrSize);
-            if (!rfa) {
-                break;
+            formTwoNewRVs(pair1, pair2, rv, originalRV, replacingIndex);
+
+            int bound1 = Integer.MAX_VALUE;
+            int bound2 = Integer.MAX_VALUE;
+
+            if (uniqueNess.get(curTable)) {
+                bound1 = calculateFrequencyUpperBound(pair1);
+                bound2 = calculateFrequencyUpperBound(pair2);
             }
 
-            int bound1 = 1, bound2 = 1;
+            if ((!concurrentScaledRVDis.containsKey(pair1) || concurrentScaledRVDis.get(pair1) < bound1)
+                    && (!concurrentScaledRVDis.containsKey(pair2) || concurrentScaledRVDis.get(pair2) < bound2)) {
 
-            if (!this.uniqueNess.get(curTable)) {
-                bound1 = Integer.MAX_VALUE;
-                bound2 = Integer.MAX_VALUE;
-            } else {
-                bound1 = findUniqBound(pair1);
-                bound2 = findUniqBound(pair2);
-            }
-
-            if ((!conScaledRVDis.containsKey(pair1) || conScaledRVDis.get(pair1) < bound1)
-                    && (!conScaledRVDis.containsKey(pair2) || conScaledRVDis.get(pair2) < bound2)) {
-
-                int minValue = ivConstraint(pair1, pair2, conScaledRVDis, bound1, bound2, originalRV, avaCount);
-                if (minValue <= 0) {
+                int legalIncrementalFrequency = calculateLegalIncrementalFrequency(pair1, pair2, concurrentScaledRVDis, bound1, bound2, originalRV, incrementalFrequency);
+                if (legalIncrementalFrequency <= 0) {
                     continue;
                 }
-                conScaledRVDis.put(originalRV.getKey(), originalRV.getValue() - minValue);
-                avaCount = updateCon(pair1, pair2, minValue, avaCount, bound1, bound2, conScaledRVDis);
-
-                updateDegrees(rv, minValue);
+                concurrentScaledRVDis.put(originalRV.getKey(), originalRV.getValue() - legalIncrementalFrequency);
+                incrementalFrequency = updateReformingStatistics(rv, pair1, pair2, legalIncrementalFrequency, incrementalFrequency, bound1, bound2, concurrentScaledRVDis);
 
                 break;
 
             }
         }
 
-        return avaCount;
+        return incrementalFrequency;
     }
 
-    //this is computed based on the key sum
-    private ArrayList<ArrayList<Integer>> compClosest(ArrayList<Integer> key, ComKey ck) {
+    /**
+     * This method retrieves the closest joint-degrees based on the key sum.
+     *
+     * @param originalJD
+     * @param ck
+     * @return
+     */
+    private ArrayList<ArrayList<Integer>> calculateClosestJointDegree(ArrayList<Integer> originalJD, ComKey ck) {
         ArrayList<ArrayList<Integer>> result = new ArrayList<>();
         int min = Integer.MAX_VALUE;
         int thresh = 10000;
         int sum = 0;
-        for (int i : key) {
+        for (int i : originalJD) {
             sum += i;
         }
         for (int i = 1; i <= thresh; i++) {
@@ -734,26 +500,39 @@ public class ParaRVCorr implements Runnable {
 
     }
 
-    private ArrayList<ArrayList<Integer>> fetchSingle(int totalNum, ArrayList<ArrayList<ArrayList<Integer>>> rvSet,
+    /**
+     * This method retrieves the best matching RV By iterating through the
+     * possible candidates
+     *
+     * @param totalNum
+     * @param rvSet
+     * @param originalRV
+     * @return bestMatchingRV
+     */
+    private ArrayList<ArrayList<Integer>> fetchSingleRV(int totalNum, ArrayList<ArrayList<ArrayList<Integer>>> rvSet,
             ArrayList<ArrayList<Integer>> originalRV) {
 
         ArrayList<ArrayList<Integer>> matchingRV = new ArrayList<>();
         while (starterRandom < totalNum) {
             matchingRV = new ArrayList<>();
-            long temp = this.starterRandom;
+            long remainder = this.starterRandom;
             for (int i = 0; i < rvSet.size(); i++) {
                 int indexSize = calIndexSize(rvSet, i);
-                int ind = (int) (temp / indexSize);
-                if (ckJDAvaCounts.get(this.referenceTable.get(this.curTable).get(i)).containsKey(rvSet.get(i).get(ind))) {
+                int ind = (int) (remainder / indexSize);
+                String srcTable = referencedTables.get(i);
+                int avaIndex = jointDegreeAvaIndexes.get(i);
+
+                if (jointDegreeAvaStats.get(srcTable).containsKey(rvSet.get(i).get(ind))
+                        && jointDegreeAvaStats.get(srcTable).get(rvSet.get(i).get(ind)).ckAvaCount[avaIndex] > 0) {
                     matchingRV.add(rvSet.get(i).get(ind));
-                    temp = temp % indexSize;
+                    remainder = remainder % indexSize;
                 } else {
+                    //clean the hashmaps
                     this.starterRandom++;
-                    String srcTable = this.referenceTable.get(this.curTable).get(i).sourceTable;
-                    if (mappedBestJointDegree.get(this.mergedDegreeTitle.get(srcTable)).containsKey(originalRV.get(i))) {
-                        mappedBestJointDegree.get(this.mergedDegreeTitle.get(srcTable)).get(originalRV.get(i)).remove(rvSet.get(i).get(ind));
+                    if (norm1JointDegreeMapping.get(this.mergedDegreeTitle.get(srcTable)).containsKey(originalRV.get(i))) {
+                        norm1JointDegreeMapping.get(this.mergedDegreeTitle.get(srcTable)).get(originalRV.get(i)).remove(rvSet.get(i).get(ind));
                     }
-                    cleanDistanceMapD(i, rvSet.get(i).get(ind));
+                    cleanDistanceMap(i, rvSet.get(i).get(ind));
                     break;
                 }
             }
@@ -764,53 +543,60 @@ public class ParaRVCorr implements Runnable {
         return matchingRV;
     }
 
-    private void sortJDBasedOnValue(ArrayList<ArrayList<ComKey>> comkeys) {
-        Sort sort = new Sort();
-        for (int i = 0; i < referenceTable.get(curTable).size(); i++) {
-            ComKey ck = referenceTable.get(curTable).get(i);
-            String srcTable = ck.sourceTable;
-            comkeys.add(this.mergedDegreeTitle.get(srcTable));
-            sortedJDs.add(sort.sortOnValueIntegerDesc(originalCoDa.jointDegreeDis.get(comkeys.get(i))));
+    /**
+     *
+     * @return CKsOfErerencedTables
+     */
+    private ArrayList<ArrayList<ComKey>> calculateCKsOfReferencedTable() {
+        ArrayList<ArrayList<ComKey>> comKeys = new ArrayList<>();
+        for (int i = 0; i < referencingComKeyMap.get(curTable).size(); i++) {
+            ComKey ck = referencingComKeyMap.get(curTable).get(i);
+            String srcTable = ck.getSourceTable();
+            comKeys.add(this.mergedDegreeTitle.get(srcTable));
         }
+        return comKeys;
     }
 
+    
+    /**
+     *
+     * @param comkeys
+     * @return sortedRVList
+     */
     private List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortRVBasedOnJDAppearance(ArrayList<ArrayList<ComKey>> comkeys) {
-        HashMap<ArrayList<ArrayList<Integer>>, Long> appearance = new HashMap<>();
+        HashMap<ArrayList<ArrayList<Integer>>, Long> rvAppearance = new HashMap<>();
         for (ArrayList<ArrayList<Integer>> rv : originalCoDa.rvDis.get(curTable).keySet()) {
-            long sum1 = 1;
+            long product = 1;
             for (int i = 0; i < rv.size(); i++) {
-                sum1 *= originalCoDa.jointDegreeDis.get(comkeys.get(i)).get(rv.get(i));
+                product *= originalCoDa.jointDegreeDis.get(comkeys.get(i)).get(rv.get(i));
             }
-            appearance.put(rv, sum1);
+            rvAppearance.put(rv, product);
         }
 
-        List<Entry<ArrayList<ArrayList<Integer>>, Long>> sorted = new Sort().sortOnKeyAppearance(appearance, comkeys, referenceTable, originalCoDa.jointDegreeDis);
-        return sorted;
+        return new Sort().sortOnKeyAppearance(rvAppearance, comkeys, referencingComKeyMap, originalCoDa.jointDegreeDis);
     }
 
-    private boolean checkAppearBest(ArrayList<ArrayList<Integer>> originalRV) {
-        boolean found = false;
-        for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
-            String sourceTable = this.referenceTable.get(curTable).get(i).sourceTable;
-            if (this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).containsKey(originalRV.get(i))) {
-                found = true;
-            }
-        }
-        return found;
-    }
+ 
 
-    private int compRVSet(ArrayList<ArrayList<Integer>> originalRV, ArrayList<ArrayList<ArrayList<Integer>>> rvSet) {
-        int totalNum = 1;
-        for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
-            String sourceTable = this.referenceTable.get(curTable).get(i).sourceTable;
+    /**
+     * This method calculates the candidate RVs
+     *
+     * @param originalRV
+     * @param rvSet
+     * @return productNumber of the candidate RVs
+     */
+    private int calculateRVSet(ArrayList<ArrayList<Integer>> originalRV, ArrayList<ArrayList<ArrayList<Integer>>> rvSet) {
+        int productNumber = 1;
+        for (int i = 0; i < referencingComKeyMap.get(curTable).size(); i++) {
+            String sourceTable = referencingComKeyMap.get(curTable).get(i).sourceTable;
 
             ArrayList<ArrayList<Integer>> cloesestJDs = new ArrayList<ArrayList<Integer>>();
-            if (this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).containsKey(originalRV.get(i))) {
-                for (ArrayList<Integer> jd : this.mappedBestJointDegree.get(this.mergedDegreeTitle.get(sourceTable)).get(originalRV.get(i))) {
-                    cloesestJDs.add(new ArrayList<Integer>(jd));
+            if (norm1JointDegreeMapping.get(mergedDegreeTitle.get(sourceTable)).containsKey(originalRV.get(i))) {
+                for (ArrayList<Integer> jointDegree : norm1JointDegreeMapping.get(mergedDegreeTitle.get(sourceTable)).get(originalRV.get(i))) {
+                    cloesestJDs.add(new ArrayList<Integer>(jointDegree));
                 }
             } else if (cloesestJDs.size() == 0) {
-                cloesestJDs = new ArrayList<>(compClosest(originalRV.get(i), referenceTable.get(curTable).get(i)));
+                cloesestJDs = new ArrayList<>(calculateClosestJointDegree(originalRV.get(i), referencingComKeyMap.get(curTable).get(i)));
             }
 
             if (cloesestJDs.size() == 0) {
@@ -818,134 +604,162 @@ public class ParaRVCorr implements Runnable {
             }
 
             rvSet.add(cloesestJDs);
-            totalNum *= cloesestJDs.size();
+            productNumber *= cloesestJDs.size();
         }
-        return totalNum;
+        return productNumber;
     }
 
-    private void computeFKidSet(ConcurrentHashMap<ArrayList<Integer>, Integer> fk1IdSet, ConcurrentHashMap<ArrayList<Integer>, Integer> fk2IdSet) {
-        for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
-            for (ArrayList<Integer> key : ckJDAvaCounts.get(referenceTable.get(curTable).get(i)).keySet()) {
-                if (i == 0) {
-                    fk1IdSet.put(key, 1);
-                }
-                if (i == 1) {
-                    fk2IdSet.put(key, 1);
-                }
-            }
+
+    /**
+     * Update the avaStas for incrementalFrequency
+     *
+     * @param rv
+     * @param incrementalFrequency
+     */
+    private void updateStatisticsForRandom(ArrayList<ArrayList<Integer>> rv, int incrementalFrequency) {
+        for (int i = 0; i < rv.size(); i++) {
+            String srcTable = referencedTables.get(i);
+            int index = jointDegreeAvaIndexes.get(i);
+            jointDegreeAvaStats.get(srcTable).get(rv.get(i)).ckAvaCount[index] -= incrementalFrequency;
         }
     }
+    
+    
+    /**
+     * Randomly pairs up the JDs to form new RVs
+     * @param scaledRVDistribution 
+     */
+    private void randomRoundEffi(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution
+           ) {
+ ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees = calculateAvailableJD();
 
-    private long computeUniqBound(String table1, String table2, ArrayList<Integer> first, ArrayList<Integer> second) {
-        if (this.uniqueNess.get(curTable)) {
-            long v1 = scaledJDDis.get(this.mergedDegreeTitle.get(table1)).get(first);
-            long v2 = scaledJDDis.get(this.mergedDegreeTitle.get(table2)).get(second);
-            return v1 * v2;
-        }
-        return Long.MAX_VALUE;
-    }
-
-    private void updateDistribution(ArrayList<ArrayList<Integer>> rv, int usedFrequency) {
-        for (int t = 0; t < rv.size(); t++) {
-            int oldVal = ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).get(rv.get(t));
-            ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).put(rv.get(t), oldVal - usedFrequency);
-        }
-
-        for (int t = 0; t < rv.size(); t++) {
-            if (checkAvaCounts(rv.get(t), t)) {
-                ckJDAvaCounts.get(referenceTable.get(curTable).get(t)).remove(rv.get(t));
-            }
-        }
-    }
-
-    private void randomRoundEffiThreeKeys(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDis) {
-        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> conScaledRVDis = new ConcurrentHashMap<>();
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDis.entrySet()) {
-            conScaledRVDis.put(entry.getKey(), entry.getValue());
-        }
-        ArrayList<ArrayList<ArrayList<Integer>>> idSet = new ArrayList<>();
-        ArrayList<String> tables = new ArrayList<>();
-        ArrayList<ComKey> cks = new ArrayList<>();
-        for (int i = 0; i < referenceTable.get(curTable).size(); i++) {
-            idSet.add(computeFKIDList(i));
-            tables.add(this.referenceTable.get(curTable).get(i).sourceTable);
-            cks.add(referenceTable.get(curTable).get(i));
-            System.out.println("size: " + idSet.get(i).size());
+        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis = new ConcurrentHashMap<>();
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDistribution.entrySet()) {
+            concurrentScaledRVDis.put(entry.getKey(), entry.getValue());
         }
 
-        long uniqBound = Integer.MAX_VALUE;
+        long uniquenessBound = Integer.MAX_VALUE;
         starterRandom = 0;
-        ArrayList<Integer> indexs = new ArrayList<>(tables.size());
-        for (int i = 0; i < tables.size(); i++) {
-            indexs.add(0);
+        ArrayList<Integer> jointDegreeIndexs = new ArrayList<>(referencedTables.size());
+        for (int i = 0; i < referencedTables.size(); i++) {
+            jointDegreeIndexs.add(0);
         }
-        while (checkIndexes(indexs, idSet)) {
-            System.out.println("indexes:" + indexs);
-            int avaCount = calAvaCounts(indexs, idSet, cks);
-            if (avaCount == 0) {
+
+        while (checkIndexesOverflow(jointDegreeIndexs, availableJointDegrees)) {
+            System.out.println("indexes:" + jointDegreeIndexs);
+            int incrementalFrequency = calculateAvailableFrequency(jointDegreeIndexs, availableJointDegrees);
+
+            if (incrementalFrequency == 0) {
                 continue;
             }
-            if (avaCount < 0) {
-                System.out.println("here");
-                System.out.println("indexes:" + indexs);
-                System.out.println(idSet.get(0).size());
+            if (incrementalFrequency < 0) {
                 break;
             }
-            uniqBound = computeUniqBound(tables, indexs, idSet);
-            ArrayList<ArrayList<Integer>> rv = computeRV(indexs, idSet);
-            int usedFrequency = processNewEdges(avaCount, rv, conScaledRVDis, uniqBound);
-            System.out.println("frequency: " + usedFrequency);
-            updateDistribution(rv, usedFrequency);
-            int returnNumber = updateLeading(indexs, indexs.size() - 1, idSet);
-            if (returnNumber < 0) {
-                System.out.println("there");
-                System.out.println("indexes:" + indexs);
-                System.out.println(idSet.get(0).size());
+
+            uniquenessBound = calculateUniquenessBound(jointDegreeIndexs, availableJointDegrees);
+            ArrayList<ArrayList<Integer>> rv = extractRV(jointDegreeIndexs, availableJointDegrees);
+
+            incrementalFrequency = synthesizeNewRV(incrementalFrequency, rv, concurrentScaledRVDis, uniquenessBound);
+            updateStatisticsForRandom(rv, incrementalFrequency);
+
+            if (incrementJointDegreeIndexes(jointDegreeIndexs, jointDegreeIndexs.size() - 1, availableJointDegrees) < 0) {
                 break;
             }
         }
-        System.out.println("indexes: " + indexs + "\t" + idSet.get(0));
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : conScaledRVDis.entrySet()) {
-            scaledRVDis.put(entry.getKey(), entry.getValue());
+
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : concurrentScaledRVDis.entrySet()) {
+            scaledRVDistribution.put(entry.getKey(), entry.getValue());
+        }
+    }
+    
+    
+    /**
+     * Randomly swaps the old RV and a potential RV 
+     * to form 2 more RVs
+     * @param scaledRVDistribution 
+     */
+    private void randomSwapEffi(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution) {
+        ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis = new ConcurrentHashMap<>();
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDistribution.entrySet()) {
+            concurrentScaledRVDis.put(entry.getKey(), entry.getValue());
+        }
+
+        ArrayList<Integer> jointDegreeIndexs = new ArrayList<>(referencedTables.size());
+        for (int i = 0; i < referencedTables.size(); i++) {
+            jointDegreeIndexs.add(0);
+        }
+
+        ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees = calculateAvailableJD();
+
+        starterRandom = 0;
+        while (checkIndexesOverflow(jointDegreeIndexs, availableJointDegrees)) {
+            int incrementalFrequency = calculateAvailableFrequency(jointDegreeIndexs, availableJointDegrees);
+            if (incrementalFrequency == 0) {
+                continue;
+            }
+            if (incrementalFrequency < 0) {
+                break;
+            }
+
+            ArrayList<ArrayList<Integer>> rv = extractRV(jointDegreeIndexs, availableJointDegrees);
+
+            for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV : concurrentScaledRVDis.entrySet()) {
+                if (originalRV.getValue() == 0 || originalRV.getKey().size() == 0) {
+                    continue;
+                }
+
+                incrementalFrequency = breakAndFormPairs(rv, originalRV, incrementalFrequency, concurrentScaledRVDis);
+
+                if (incrementalFrequency == 0) {
+                    continue;
+                }
+
+            }
+
+            for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : concurrentScaledRVDis.entrySet()) {
+                scaledRVDistribution.put(entry.getKey(), entry.getValue());
+            }
         }
     }
 
-    private ArrayList<ArrayList<Integer>> computeFKIDList(int index) {
-        ArrayList<ArrayList<Integer>> fkIDSet = new ArrayList<>();
-        //  for (int i = 0; i < this.referenceTable.get(curTable).size(); i++) {
-        for (ArrayList<Integer> key : ckJDAvaCounts.get(referenceTable.get(curTable).get(index)).keySet()) {
-            fkIDSet.add(key);
-        }
-        return fkIDSet;
-    }
-//}
+    
 
-    private boolean checkIndexes(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+    /**
+     * Returns FALSE if it has enumerated all the cases.
+     *
+     * @param jointDegreeIndexs
+     * @param availableJointDegrees
+     * @return if the indexes are still legal
+     */
+    private boolean checkIndexesOverflow(ArrayList<Integer> jointDegreeIndexs, ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
 
-        for (int i = 0; i < indexs.size(); i++) {
-            if (indexs.get(i) < idSet.get(i).size()) {
+        for (int i = 0; i < jointDegreeIndexs.size(); i++) {
+            if (jointDegreeIndexs.get(i) < availableJointDegrees.get(i).size()) {
                 return true;
             }
         }
         return false;
     }
 
-    private int calAvaCounts(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet, ArrayList<ComKey> cks) {
+    /**
+     * This method determines if the corresponding RV is legal 
+     * and returns the corresponding frequency
+     * If the returned value is below 0, 
+     * Then no more RV are available.
+     * @param jointDegreeIndexes
+     * @param availableJointDegrees
+     * @return 
+     */
+    private int calculateAvailableFrequency(ArrayList<Integer> jointDegreeIndexes, ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
         int minNumber = Integer.MAX_VALUE;
-        for (int i = 0; i < indexs.size(); i++) {
-            int index = indexs.get(i);
-            ArrayList<Integer> jd = idSet.get(i).get(index);
-            if (ckJDAvaCounts.get(cks.get(i)).containsKey(jd) && ckJDAvaCounts.get(cks.get(i)).get(jd) > 0) {
-                minNumber = Math.min(minNumber, ckJDAvaCounts.get(cks.get(i)).get(jd));
+        for (int i = 0; i < jointDegreeIndexes.size(); i++) {
+            ArrayList<Integer> jointDegree = availableJointDegrees.get(i).get(jointDegreeIndexes.get(i));
+            String srcTable = referencedTables.get(i);
+            int jdIndex = jointDegreeIndexes.get(i);
+            if (jointDegreeAvaStats.get(srcTable).containsKey(jointDegree) && jointDegreeAvaStats.get(srcTable).get(jointDegree).ckAvaCount[jdIndex] > 0) {
+                minNumber = Math.min(minNumber, jointDegreeAvaStats.get(srcTable).get(jointDegree).ckAvaCount[jdIndex]);
             } else {
-                //boolean end = false;
-
-                int returnNumber = updateLeading(indexs, i, idSet);
-                //idSet.get(i).remove(index);
-                /*if (!end){
-                    indexs.set(i, index);
-                }*/
-
+                int returnNumber = incrementJointDegreeIndexes(jointDegreeIndexes, i, availableJointDegrees);
                 return returnNumber;
             }
         }
@@ -953,30 +767,47 @@ public class ParaRVCorr implements Runnable {
         return minNumber;
     }
 
-    private int updateLeading(ArrayList<Integer> indexs, int i, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
-        for (int j = i + 1; j < indexs.size(); j++) {
-            indexs.set(j, 0);
-        }
+    /**
+     * Increment the joinDegreeIndexes
+     *
+     * @param jointDegreeIndexes
+     * @param i
+     * @param availableJointDegrees
+     * @return
+     */
+    private int incrementJointDegreeIndexes(ArrayList<Integer> jointDegreeIndexes, int i, ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
         if (i < 0) {
             return 0;
         }
-        if (i == 0 && indexs.get(i) >= idSet.get(i).size() - 1) {
-            return -1;
-        } else if (indexs.get(i) == idSet.get(i).size() - 1) {
-            indexs.set(i, 0);
 
-            return updateLeading(indexs, i - 1, idSet);
+        for (int j = i + 1; j < jointDegreeIndexes.size(); j++) {
+            jointDegreeIndexes.set(j, 0);
+        }
+
+        if (i == 0 && jointDegreeIndexes.get(i) >= availableJointDegrees.get(i).size() - 1) {
+            return -1;
+        } else if (jointDegreeIndexes.get(i) == availableJointDegrees.get(i).size() - 1) {
+            return incrementJointDegreeIndexes(jointDegreeIndexes, i - 1, availableJointDegrees);
         } else {
-            indexs.set(i, (indexs.get(i) + 1));
+            jointDegreeIndexes.set(i, (jointDegreeIndexes.get(i) + 1));
         }
         return 0;
     }
 
-    private long computeUniqBound(ArrayList<String> tables, ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+    
+    
+    /**
+     * 
+     * @param jointDegreeIndexs
+     * @param availableJointDegrees
+     * @return bound by uniqueness constraint
+     */
+    private long calculateUniquenessBound(ArrayList<Integer> jointDegreeIndexs,
+            ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
         if (this.uniqueNess.get(curTable)) {
-            long result = 0;
-            for (int i = 0; i < tables.size(); i++) {
-                long v1 = scaledJDDis.get(this.mergedDegreeTitle.get(tables.get(i))).get(idSet.get(i).get(indexs.get(i)));
+            long result = 1;
+            for (int i = 0; i < referencedTables.size(); i++) {
+                long v1 = scaledJointDegreeDistribution.get(this.mergedDegreeTitle.get(referencedTables.get(i))).get(availableJointDegrees.get(i).get(jointDegreeIndexs.get(i)));
                 result = result * v1;
             }
 
@@ -985,13 +816,214 @@ public class ParaRVCorr implements Runnable {
 
         return Long.MAX_VALUE;
     }
-
-    private ArrayList<ArrayList<Integer>> computeRV(ArrayList<Integer> indexs, ArrayList<ArrayList<ArrayList<Integer>>> idSet) {
+    
+    
+    /**
+     * Extract the RV based on the jointdegreeIndexes
+     * @param jointDegreeIndexs
+     * @param availableJointDegrees
+     * @return RV
+     */
+    private ArrayList<ArrayList<Integer>> extractRV(ArrayList<Integer> jointDegreeIndexs,
+            ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
         ArrayList<ArrayList<Integer>> result = new ArrayList<>();
-        for (int i = 0; i < indexs.size(); i++) {
-            result.add(idSet.get(i).get(indexs.get(i)));
+        for (int i = 0; i < jointDegreeIndexs.size(); i++) {
+            result.add(availableJointDegrees.get(i).get(jointDegreeIndexs.get(i)));
         }
         return result;
+    }
+    
+    
+    /**
+     * Initialize the parameters
+     * @param originalCoDa
+     * @param sRatio
+     * @param curTable
+     * @param referencingTableMap
+     * @param norm1JointDegreeMapping
+     * @param uniqueNess 
+     */
+    public void setInitials(CoDa originalCoDa, double sRatio, String curTable,
+            HashMap<String, ArrayList<ComKey>> referencingTableMap,
+            HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMapping,
+            HashMap<String, Boolean> uniqueNess) {
+        this.originalCoDa = originalCoDa;
+        this.sRatio = sRatio;
+        this.curTable = curTable;
+        this.referencingComKeyMap = referencingTableMap;
+        this.norm1JointDegreeMapping = norm1JointDegreeMapping;
+        this.uniqueNess = uniqueNess;
+    }   
+
+    
+    /**
+     * Preparation Work: Calculate the indexes for each referenced JD.
+     */
+    private void calculateJDAvaIndexes() {
+        for (ComKey ck : referencingComKeyMap.get(curTable)) {
+            String srcTable = ck.getSourceTable();
+            referencedTables.add(srcTable);
+            for (int i = 0; i < mergedDegreeTitle.get(srcTable).size(); i++) {
+                if (mergedDegreeTitle.get(srcTable).get(i).getReferencingTable().equals(curTable) && ck.referenceposition == mergedDegreeTitle.get(srcTable).get(i).referenceposition) {
+                    jointDegreeAvaIndexes.add(i);
+                }
+            }
+        }
+    }
+
+    /**
+     *
+     * @param calculatedRV
+     * @param frequency
+     * @return maximal avaliable frequencies
+     */
+    private int calculateAvaliableFrequency(ArrayList<ArrayList<Integer>> calculatedRV, int frequency) {
+        for (int i = 0; i < calculatedRV.size(); i++) {
+            String srcTable = referencedTables.get(i);
+            int index = jointDegreeAvaIndexes.get(i);
+            frequency = Math.min(frequency, jointDegreeAvaStats.get(srcTable).get(calculatedRV.get(i)).ckAvaCount[index]);
+        }
+        return frequency;
+    }
+    
+    
+    /**
+     * Calculate the incremental frequency for uniqueness constraint
+     * @param calculatedRV
+     * @param incrementalFrequency
+     * @param oldFrequency
+     * @return incrementalFrequency
+     */
+    private int calculateIncrementalFrequencyByUniqueness(ArrayList<ArrayList<Integer>> calculatedRV, int incrementalFrequency, int oldFrequency) {
+        int bound = calculateFrequencyUpperBound(calculatedRV);
+
+        if (oldFrequency + incrementalFrequency >= bound) {
+            this.previouslyCalculatedBound.remove(calculatedRV);
+            this.overBoundedRVs.add(calculatedRV);
+            incrementalFrequency = bound - oldFrequency;
+        }
+        return incrementalFrequency;
+    }
+    
+    
+    /**
+     * Update the joint-degree available statistics
+     * @param calculatedRV
+     * @param incrementalFrequency 
+     */
+    private void updateJointDegreeAvaStats(ArrayList<ArrayList<Integer>> calculatedRV, int incrementalFrequency) {
+        for (int k = 0; k < calculatedRV.size(); k++) {
+            String srcTable = referencedTables.get(k);
+            int index = jointDegreeAvaIndexes.get(k);
+            int v = jointDegreeAvaStats.get(srcTable).get(calculatedRV.get(k)).ckAvaCount[index];
+            jointDegreeAvaStats.get(srcTable).get(calculatedRV.get(k)).ckAvaCount[index] = v - incrementalFrequency;
+        }
+    }
+
+    /**
+     * Cleaning Job
+     *
+     * @param calculatedRV
+     * @param originalRV
+     */
+    private void cleanNorm1AndDistanceMap(ArrayList<ArrayList<Integer>> calculatedRV, ArrayList<ArrayList<Integer>> originalRV) {
+        for (int k = 0; k < calculatedRV.size(); k++) {
+            String sourceTable = this.referencedTables.get(k);
+            int index = jointDegreeAvaIndexes.get(k);
+            int v = jointDegreeAvaStats.get(sourceTable).get(calculatedRV.get(k)).ckAvaCount[index];
+            if (v == 0) {
+
+                cleanNorm1Map(sourceTable, originalRV, calculatedRV, k);
+
+                cleanDistanceMap(k, calculatedRV.get(k));
+            }
+        }
+    }
+
+    /**
+     * Cleans the norm1 map
+     *
+     * @param sourceTable
+     * @param originalRV
+     * @param calculatedRV
+     * @param k
+     */
+    private void cleanNorm1Map(String sourceTable, ArrayList<ArrayList<Integer>> originalRV, ArrayList<ArrayList<Integer>> calculatedRV, int k) {
+        if (this.norm1JointDegreeMapping.get(this.mergedDegreeTitle.get(sourceTable)).containsKey(originalRV.get(k))) {
+            if (this.norm1JointDegreeMapping.get(this.mergedDegreeTitle.get(sourceTable)).get(originalRV.get(k)).contains(calculatedRV.get(k))) {
+                this.norm1JointDegreeMapping.get(this.mergedDegreeTitle.get(sourceTable)).get(originalRV.get(k)).remove(calculatedRV.get(k));
+            }
+        }
+    }
+
+    /**
+     * Cleans the jdSumMap
+     *
+     * @param k
+     * @param calDegrees
+     */
+    private void cleanDistanceMap(int k, ArrayList<Integer> calDegrees) {
+        int insum = calculateDegreeSum(calDegrees);
+        ComKey ck = referencingComKeyMap.get(curTable).get(k);
+        if (jdSumMap.containsKey(ck) && jdSumMap.get(ck).containsKey(insum)) {
+            this.jdSumMap.get(referencingComKeyMap.get(curTable).get(k)).get(insum).remove(calDegrees);
+            if (this.jdSumMap.get(referencingComKeyMap.get(curTable).get(k)).get(insum).isEmpty()) {
+                this.jdSumMap.get(referencingComKeyMap.get(curTable).get(k)).remove(insum);
+            }
+        }
+
+    }
+
+    /**
+     *
+     * @return avaliable Joint-Degrees
+     */
+    private ArrayList<ArrayList<ArrayList<Integer>>> calculateAvailableJD() {
+        ArrayList<ArrayList<ArrayList<Integer>>> result = new ArrayList<>();
+        for (int i = 0; i < referencedTables.size(); i++) {
+            ArrayList<ArrayList<Integer>> jointDegrees = new ArrayList<>();
+            String srcTable = referencedTables.get(i);
+            int index = jointDegreeAvaIndexes.get(i);
+            for (Entry<ArrayList<Integer>, AvaliableStatistics> entry : jointDegreeAvaStats.get(srcTable).entrySet()) {
+                if (entry.getValue().ckAvaCount[index] > 0) {
+                    jointDegrees.add(entry.getKey());
+                }
+            }
+            result.add(jointDegrees);
+        }
+        return result;
+    }
+
+    /**
+     *
+     * @return if there are available joint-degrees
+     */
+    private boolean checkAvailableJD() {
+        for (int i = 0; i < referencedTables.size(); i++) {
+            String srcTable = referencedTables.get(i);
+            int index = jointDegreeAvaIndexes.get(i);
+            for (Entry<ArrayList<Integer>, AvaliableStatistics> entry : jointDegreeAvaStats.get(srcTable).entrySet()) {
+                if (entry.getValue().ckAvaCount[index] > 0) {
+                    return true;
+                }
+            }
+
+        }
+        return false;
+    }
+
+    
+    /**
+     * 
+     * @param jointDegree
+     * @return sum of the degrees
+     */
+    private int calculateDegreeSum(ArrayList<Integer> jointDegree) {
+        int sum = 0;
+        for (int num: jointDegree){
+            sum += num;
+        }
+        return sum;
     }
 
 }

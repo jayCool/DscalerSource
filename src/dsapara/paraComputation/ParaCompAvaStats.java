@@ -19,17 +19,16 @@ import java.util.Map;
 public class ParaCompAvaStats implements Runnable {
 
     Map.Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry;
-    HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats;
-    HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts;
+    HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats;
+    //HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts;
 
     public ParaCompAvaStats(
             Map.Entry<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeEntry,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats, 
-            HashMap<ComKey, HashMap<ArrayList<Integer>, Integer>> ckJDAvaCounts
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats
     ) {
         this.jointDegreeEntry = jointDegreeEntry;
-        this.srcJDAvaStats = srcJDAvaStats;
-        this.ckJDAvaCounts = ckJDAvaCounts;
+        this.jointDegreeAvaStats = jointDegreeAvaStats;
+      //  this.ckJDAvaCounts = ckJDAvaCounts;
 
     }
 
@@ -37,9 +36,10 @@ public class ParaCompAvaStats implements Runnable {
     public void run() {
         int startID = 0;
         HashMap<ArrayList<Integer>, AvaliableStatistics> jdAvaStats = new HashMap<>();
-        for (int i = 0; i < jointDegreeEntry.getKey().size(); i++) {
+        /** for (int i = 0; i < jointDegreeEntry.getKey().size(); i++) {
             ckJDAvaCounts.put(jointDegreeEntry.getKey().get(i), new HashMap<ArrayList<Integer>, Integer>());
-        }
+        }*/
+       
         for (Map.Entry<ArrayList<Integer>, Integer> jointDegreeFreqEntry : jointDegreeEntry.getValue().entrySet()) {
            
             int[] startid = new int[jointDegreeEntry.getKey().size()];
@@ -49,19 +49,24 @@ public class ParaCompAvaStats implements Runnable {
             }
             AvaliableStatistics avaStat = new AvaliableStatistics();
 
+            
+            int[] ckAvaCounts = new int[jointDegreeFreqEntry.getKey().size()];
             for (int i = 0; i < jointDegreeEntry.getKey().size(); i++) {
                 int c = jointDegreeFreqEntry.getValue() * jointDegreeFreqEntry.getKey().get(i);
-                ckJDAvaCounts.get(jointDegreeEntry.getKey().get(i)).put(jointDegreeFreqEntry.getKey(), c);
+            //    ckJDAvaCounts.get(jointDegreeEntry.getKey().get(i)).put(jointDegreeFreqEntry.getKey(), c);
+                ckAvaCounts[i] = c;
             }
             startID += jointDegreeFreqEntry.getValue();
 
             avaStat.ids = ids;
-            avaStat.start = startid;
+            avaStat.startIndex = startid;
+            
+            avaStat.ckAvaCount = ckAvaCounts;
             
             jdAvaStats.put(jointDegreeFreqEntry.getKey(), avaStat);
 
         }
-        srcJDAvaStats.put(jointDegreeEntry.getKey().get(0).sourceTable, jdAvaStats);
+        jointDegreeAvaStats.put(jointDegreeEntry.getKey().get(0).sourceTable, jdAvaStats);
     }
 
 }

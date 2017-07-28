@@ -8,6 +8,7 @@ package dscaler.dataStruct;
 
 public class AvaliableStatistics {
     
-    public int[] start;
+    public int[] startIndex;
     public int[] ids;
+    public int[] ckAvaCount;
 }

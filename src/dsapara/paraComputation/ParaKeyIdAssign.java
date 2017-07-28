@@ -114,14 +114,14 @@ public class ParaKeyIdAssign implements Runnable {
     ) {
         int frequency = correlationEntry.getValue();
         int queue1Length = this.avaInfo.get(firstCK.sourceTable).get(correlationEntry.getKey().get(0)).ids.length;
-        int fk1StartingIndex = this.avaInfo.get(firstCK.sourceTable).get(correlationEntry.getKey().get(0)).start[firstSourceTableIndex];
+        int fk1StartingIndex = this.avaInfo.get(firstCK.sourceTable).get(correlationEntry.getKey().get(0)).startIndex[firstSourceTableIndex];
 
         int[] firstFKIDFrequency = new int[queue1Length];
         fk1StartingIndex = computeFirstFKIDFrequency(frequency, queue1Length, firstFKIDFrequency, fk1StartingIndex);
-        this.avaInfo.get(firstCK.sourceTable).get(correlationEntry.getKey().get(0)).start[firstSourceTableIndex] = fk1StartingIndex;
+        this.avaInfo.get(firstCK.sourceTable).get(correlationEntry.getKey().get(0)).startIndex[firstSourceTableIndex] = fk1StartingIndex;
 
         int queue2Length = this.avaInfo.get(secondCK.sourceTable).get(correlationEntry.getKey().get(1)).ids.length;
-        int fk2StartingIndex = this.avaInfo.get(secondCK.sourceTable).get(correlationEntry.getKey().get(1)).start[secondSourceTableIndex];
+        int fk2StartingIndex = this.avaInfo.get(secondCK.sourceTable).get(correlationEntry.getKey().get(1)).startIndex[secondSourceTableIndex];
 
         for (int fk1ID = 0; fk1ID < firstFKIDFrequency.length; fk1ID++) {
             for (int idFrequency = 0; idFrequency < firstFKIDFrequency[fk1ID]; idFrequency++) {
@@ -136,7 +136,7 @@ public class ParaKeyIdAssign implements Runnable {
             }
         }
         //firstFKIDFrequency = null;
-        this.avaInfo.get(secondCK.sourceTable).get(correlationEntry.getKey().get(1)).start[secondSourceTableIndex] = fk2StartingIndex;
+        this.avaInfo.get(secondCK.sourceTable).get(correlationEntry.getKey().get(1)).startIndex[secondSourceTableIndex] = fk2StartingIndex;
     }
 
     private void threeKeyGen(Entry<ArrayList<ArrayList<Integer>>, Integer> scaledCorrelationPair, 
@@ -148,14 +148,14 @@ public class ParaKeyIdAssign implements Runnable {
         for (int k = 0; k < scaledCorrelationPair.getKey().size() && scaledCorrelationPair.getValue() != 0; k++) {
             ArrayList<Integer> jointDegree = scaledCorrelationPair.getKey().get(k);
             int[] idsWithJD = this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).ids;
-            int startingIDindex = this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).start[fkTableIndexes[k]];
+            int startingIDindex = this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]];
             for (int i = 0; i < frequency; i++) {
                 int jdID = idsWithJD[startingIDindex];
                 startingIDindex++;
                 startingIDindex = startingIDindex % idsWithJD.length;
                 fkIDs[k][i] = "" + jdID;
             }
-            this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).start[fkTableIndexes[k]] = startingIDindex;
+            this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]] = startingIDindex;
         }
 
         String[] combinedKeys = fkIDs[0];
@@ -221,7 +221,7 @@ public class ParaKeyIdAssign implements Runnable {
     }
 
     private void remainderAllocation(int frequency, int[] queues, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvPKids, Entry<ArrayList<ArrayList<Integer>>, Integer> correlationEntry, ArrayList<Integer> jointDegree) {
-        int fk1StartingIndex = this.avaInfo.get(firstCK.sourceTable).get(jointDegree).start[firstSourceTableIndex];
+        int fk1StartingIndex = this.avaInfo.get(firstCK.sourceTable).get(jointDegree).startIndex[firstSourceTableIndex];
         for (int i = frequency / queues.length * queues.length; i < frequency; i++) {
             ArrayList<Integer> tmp = new ArrayList<>();
             tmp.add(queues[fk1StartingIndex]);
@@ -231,7 +231,7 @@ public class ParaKeyIdAssign implements Runnable {
             rvPKids.get(correlationEntry.getKey()).add(id);
             id++;
         }
-        this.avaInfo.get(firstCK.sourceTable).get(jointDegree).start[firstSourceTableIndex] = fk1StartingIndex;
+        this.avaInfo.get(firstCK.sourceTable).get(jointDegree).startIndex[firstSourceTableIndex] = fk1StartingIndex;
     }
 
 }

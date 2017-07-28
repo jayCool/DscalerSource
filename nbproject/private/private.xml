@@ -3,37 +3,22 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/DegreeScaler.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/ParallelProcessRatio.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/Point.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/Dscaler.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaCompAvaStats.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaCompJDSum.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/RunningException.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/DataProcess.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/GlobalRefTableGen.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dscaler/dataStruct/ParaLoadCorr.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/ArgumentParser.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/Sort.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaKeyIdAssign.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/PrintFunction.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/Dscaler.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dscaler/dataStruct/AvaliableStatistics.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dbstrcture/DB.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/LocalJoinTableGen.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/StaticUpGlobalRefTableGen.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaRVCorr.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dbstrcture/Configuration.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/GlobalJoinTableGen.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/FKStructure.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaJoinTableGen.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaCompAvaStats.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dscaler/dataStruct/CoDa.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaJoinTableGen.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/JDCorrelation.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/EdgeAdjust.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/Constant.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dbstrcture/ParaReader.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaMatchKV.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dbstrcture/Table.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/LocalRefTableGen.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/DegreeScaling.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/NodeAdjustment.java</file>
-            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dbstrcture/ComKey.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaCalculateJDSum.java</file>
+            <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dscaler/dataStruct/ParaLoadCorr.java</file>
             <file>file:/C:/Users/workshop/Documents/GitHub/Dscaler_Modify/src/dsapara/paraComputation/ParaIdAssign.java</file>
         </group>
     </open-files>
