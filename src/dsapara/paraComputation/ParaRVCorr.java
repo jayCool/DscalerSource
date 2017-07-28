@@ -34,7 +34,7 @@ public class ParaRVCorr implements Runnable {
     HashMap<ArrayList<ArrayList<Integer>>, Integer> previouslyCalculatedBound = new HashMap<>();
     boolean terminated = false;
     public double sRatio;
-    double sE = 0;
+   // double sE = 0;
 
     public String curTable;
     public HashMap<String, ArrayList<ComKey>> referencingComKeyMap;
@@ -194,7 +194,7 @@ public class ParaRVCorr implements Runnable {
         iteration++;
         for (int i = 0; i < sortedRVDistribution.size(); i++) {
 
-            int frequency = this.originalCoDa.rvDis.get(this.curTable).get(sortedRVDistribution.get(i).getKey());
+            int frequency = this.originalCoDa.rvDistribution.get(this.curTable).get(sortedRVDistribution.get(i).getKey());
 
             if (frequency == 0) {
                 continue;
@@ -277,8 +277,8 @@ public class ParaRVCorr implements Runnable {
      * @return expected frequency 
      */
     private int calExpectedFrequency(Integer frequency) {
-        int result = (int) (frequency * sRatio * (1 + Math.max(0, sE)));
-        double difff = frequency * sRatio * (1 + Math.max(0, sE)) - result;
+        int result = (int) (frequency * sRatio );
+        double difff = frequency * sRatio - result;
         if (Math.random() < difff) {
             result++;
         }
@@ -565,7 +565,7 @@ public class ParaRVCorr implements Runnable {
      */
     private List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortRVBasedOnJDAppearance(ArrayList<ArrayList<ComKey>> comkeys) {
         HashMap<ArrayList<ArrayList<Integer>>, Long> rvAppearance = new HashMap<>();
-        for (ArrayList<ArrayList<Integer>> rv : originalCoDa.rvDis.get(curTable).keySet()) {
+        for (ArrayList<ArrayList<Integer>> rv : originalCoDa.rvDistribution.get(curTable).keySet()) {
             long product = 1;
             for (int i = 0; i < rv.size(); i++) {
                 product *= originalCoDa.jointDegreeDis.get(comkeys.get(i)).get(rv.get(i));

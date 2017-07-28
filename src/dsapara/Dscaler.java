@@ -8,7 +8,7 @@ package dsapara;
 import db.structs.ComKey;
 import db.structs.DB;
 import db.structs.Options;
-import dsapara.paraComputation.ParaJoinTableGen;
+import dsapara.paraComputation.ParaReferencedOnlyTableGeneration;
 import dsapara.paraComputation.ParaMatchKV;
 import dsapara.paraComputation.ParaKeyIdAssign;
 import dsapara.paraComputation.ParaCalculateJDSum;
@@ -139,13 +139,13 @@ public class Dscaler {
             HashMap<String, ArrayList<ComKey>> referencingTableMap
     ) {
 
-        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDis = new HashMap<>();
+        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDistribution = new HashMap<>();
 
         ArrayList<Thread> threadList = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalRVEntry : originalRVDis.entrySet()) {
             String curTable = originalRVEntry.getKey();
 
-            ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDis, jointDegreeAvaStats, originalRVEntry.getValue(),
+            ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDistribution, jointDegreeAvaStats, originalRVEntry.getValue(),
                     scaledJDDis, mergedDegreeTitle);
             paraRVCorr.setInitials(originalCoDa,this.scaleTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable),
                     curTable, referencingTableMap, norm1JointDegreeMapping, uniqueNess);
@@ -164,7 +164,7 @@ public class Dscaler {
                 Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
-        return scaledRVDis;
+        return scaledRVDistribution;
     }
 
     public void run() throws FileNotFoundException, IOException {
@@ -206,39 +206,39 @@ public class Dscaler {
         calculateJointDegreeSumMap(jointDegreeSumMap, jointDegreeAvaStats);
 
         System.err.println("==============================RVC====================================================");
-        scaledCoda.rvDis = referencingVectorCorrelation(scaledCoda.jointDegreeDis, originalCoDa.rvDis,
+        scaledCoda.rvDistribution = referencingVectorCorrelation(scaledCoda.jointDegreeDis, originalCoDa.rvDistribution,
                 originalDB.mergedDegreeTitle, jointDegreeAvaStats,
                 convertUniqueness(originalDB.tableType), jointDegreeSumMap, originalDB.fkRelation);
 
-        ArrayList<String> keyTables = new ArrayList<>();
-        ArrayList<String> refTables = new ArrayList<>();
-        ArrayList<String> joinTables = new ArrayList<>();
+        ArrayList<String> kvTables = new ArrayList<>();
+        ArrayList<String> referencingOnlyTables = new ArrayList<>();
+        ArrayList<String> referencedOnlyTables = new ArrayList<>();
 
-        computeKeyRefTables(keyTables, refTables, joinTables, jointDegreeAvaStats);
+        partitionTables(kvTables, referencingOnlyTables, referencedOnlyTables, jointDegreeAvaStats);
 
-        System.out.println("====================Print Pure Join Tables==========================");
-        localequatingMergedIDs(jointDegreeAvaStats, this.originalCoDa.reverseJointDegrees, joinTables);
+        System.out.println("====================Generate Referenced Only Tables==========================");
+        generateReferencedOnlyTables(jointDegreeAvaStats, this.originalCoDa.reverseJointDegrees, referencedOnlyTables);
 
         System.out.println("====================Assign IDs To RV/KV==========================");
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs = new HashMap<>(); //KEY IS THE DEGREE, VALUE ARE THOSE IDS WITH THE DEGREE
         HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids
-                = assignReferenceTable(this.scaledCoda.rvDis, referencingIDs, jointDegreeAvaStats, this.originalCoDa.reverseRVs);
+                = assignReferenceTable(this.scaledCoda.rvDistribution, referencingIDs, jointDegreeAvaStats, this.originalCoDa.reverseRVs);
 
         System.out.println("================Matching RV & JD id For KV ======================");
         HashMap<String, HashMap<Integer, Integer>> scaledBiMap = new HashMap<>();
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs = new HashMap<>();
 
         if (!this.originalCoDa.kvDis.isEmpty()) {
-            scaledBiMap = matchBiDegree(referencingIDs, jointDegreeAvaStats, this.originalCoDa.kvDis, keyVectorIDs, keyTables);
+            scaledBiMap = matchBiDegree(referencingIDs, jointDegreeAvaStats, this.originalCoDa.kvDis, keyVectorIDs, kvTables);
         }
         this.originalCoDa.dropKVDis();
         System.out.println("====================Localized Key IDs==========================");
         HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(keyVectorIDs,
-                this.originalCoDa.reverseKV, keyTables);
+                this.originalCoDa.reverseKV, kvTables);
         keyVectorIDs = null;
         //reverseKeyDistribution = null;
         this.originalCoDa.reverseKV = null;
-        localKeyIDs(rvFKids, localkeyMaps, scaledBiMap, keyTables, "local");
+        localKeyIDs(rvFKids, localkeyMaps, scaledBiMap, kvTables, "local");
         scaledBiMap = null;
         localkeyMaps = null;
 
@@ -300,7 +300,7 @@ public class Dscaler {
         HashMap<String, HashMap<Integer, Integer>> result = new HashMap<>();
         ArrayList<Thread> liss = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> kvIDentry : keyVectorIDs.entrySet()) {
-            if (!eveNum && refTables.contains(kvIDentry.getKey())) {
+            if ( refTables.contains(kvIDentry.getKey())) {
                 LocalRefTableGen lft = new LocalRefTableGen();
                 lft.result = result;
                 lft.reverseKV = reverseKV;
@@ -486,18 +486,25 @@ public class Dscaler {
         }
         return scaledBiMap;
     }
-
-    private void localequatingMergedIDs(
-            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats,
-            HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> reverseMergedDegree,
-            ArrayList<String> joinTables) {
+    
+    
+    /**
+     * Generates the referenced only tables
+     * @param jointDegreeAvaStats
+     * @param origianlReverseJointDegrees
+     * @param referencedOnlyTables 
+     */
+    private void generateReferencedOnlyTables(
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
+            HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> origianlReverseJointDegrees,
+            ArrayList<String> referencedOnlyTables) {
         ArrayList<Thread> threadList = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry : srcJDAvaStats.entrySet()) {
-            if (joinTables.contains(jdAvaEntry.getKey())) {
-                ParaJoinTableGen joinTableGen = new ParaJoinTableGen();
+        for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry : jointDegreeAvaStats.entrySet()) {
+            if (referencedOnlyTables.contains(jdAvaEntry.getKey())) {
+                ParaReferencedOnlyTableGeneration joinTableGen = new ParaReferencedOnlyTableGeneration();
                 joinTableGen.outPath = this.outPath;
                 joinTableGen.jdAvaEntry = jdAvaEntry;
-                joinTableGen.reverseMergedDegree = reverseMergedDegree;
+                joinTableGen.origianlReverseJointDegrees = origianlReverseJointDegrees;
                 joinTableGen.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
                 joinTableGen.originalDB = this.originalDB;
                 joinTableGen.delimiter = delimiter;
@@ -523,17 +530,20 @@ public class Dscaler {
         return result;
     }
 
-    private void computeKeyRefTables(ArrayList<String> keyTables, ArrayList<String> refTables, ArrayList<String> joinTables, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> srcJDAvaStats) {
-        for (String entry : this.scaledCoda.rvDis.keySet()) {
-            refTables.add(entry);
+    private void partitionTables(ArrayList<String> kvTables, ArrayList<String> referencingTables, 
+            ArrayList<String> referencedTables, 
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats) {
+        
+        for (String entry : this.scaledCoda.rvDistribution.keySet()) {
+            referencingTables.add(entry);
         }
 
-        for (String table : srcJDAvaStats.keySet()) {
-            if (refTables.contains(table)) {
-                keyTables.add(table);
-                refTables.remove(table);
+        for (String table : jointDegreeAvaStats.keySet()) {
+            if (referencingTables.contains(table)) {
+                kvTables.add(table);
+                referencingTables.remove(table);
             } else {
-                joinTables.add(table);
+                referencedTables.add(table);
             }
         }
     }

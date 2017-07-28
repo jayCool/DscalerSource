@@ -33,7 +33,7 @@ public class CoDa {
 
     public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> tupleRVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseRVs = new HashMap<>();
-    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> rvDis = new HashMap<>();
+    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> rvDistribution = new HashMap<>();
 
     public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> idKVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV = new HashMap<>();

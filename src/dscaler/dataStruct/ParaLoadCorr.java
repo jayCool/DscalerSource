@@ -66,7 +66,7 @@ public class ParaLoadCorr implements Runnable {
 
         this.originalCoDa.reverseRVs.put(curTable, rvHashMap);
         this.originalCoDa.tupleRVs.put(curTable, tupleRVDegree);
-        this.originalCoDa.rvDis.put(curTable, rvCounts);
+        this.originalCoDa.rvDistribution.put(curTable, rvCounts);
     }
 
 }
