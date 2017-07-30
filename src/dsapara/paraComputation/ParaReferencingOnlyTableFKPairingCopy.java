@@ -20,18 +20,18 @@ import java.util.Queue;
  *
  * @author workshop
  */
-public class ParaKeyIdAssign implements Runnable {
+public class ParaReferencingOnlyTableFKPairingCopy implements Runnable {
 
     public HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids;
     public HashMap<String, int[][]> efficientAssignIDs;
-    public Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationEntry;
-    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationDistribution;
+    public Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry;
+    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDistribution;
     public HashMap<String, ArrayList<ComKey>> referencingTables;
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs;
     public HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> avaInfo;
     public HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
-    public HashMap<String, Integer> scaleTableSize;
-    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseDistribution;
+    public HashMap<String, Integer> scaledTableSize;
+    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution;
 
     String referTable = "";
     int id = 0;
@@ -40,19 +40,20 @@ public class ParaKeyIdAssign implements Runnable {
     int firstSourceTableIndex, secondSourceTableIndex;
     ComKey secondCK;
     public String delimiter = "\t";
+    private int[][][] rvFKIDs;
 
-    public ParaKeyIdAssign(HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids,
-            Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationEntry,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledCorrelationDistribution,
-            HashMap<String, ArrayList<ComKey>> avaMaps,
+    public ParaReferencingOnlyTableFKPairingCopy(HashMap<String, ArrayList<ArrayList<Integer>>> rvFKids,
+            Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDistribution,
+            HashMap<String, ArrayList<ComKey>> fkRelation,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> avaInfo) {
+            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats) {
         this.rvFKids = rvFKids;
-        this.scaledCorrelationEntry = scaledCorrelationEntry;
-        this.scaledCorrelationDistribution = scaledCorrelationDistribution;
-        this.referencingTables = avaMaps;
+        this.scaledRVEntry = scaledRVEntry;
+        this.scaledRVDistribution = scaledRVDistribution;
+        this.referencingTables = fkRelation;
         this.referencingIDs = referencingIDs;
-        this.avaInfo = avaInfo;
+        this.avaInfo = jointDegreeAvaStats;
     }
 
     void newAssigning() {
@@ -61,7 +62,7 @@ public class ParaKeyIdAssign implements Runnable {
         boolean flag = false;
         HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvPKids = new HashMap<>();
 
-        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> correlationEntry : scaledCorrelationEntry.getValue().entrySet()) {
+        for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> correlationEntry : scaledRVEntry.getValue().entrySet()) {
 
             if (!rvPKids.containsKey(correlationEntry.getKey())) {
                 rvPKids.put(correlationEntry.getKey(), new ArrayList<Integer>());
@@ -69,7 +70,7 @@ public class ParaKeyIdAssign implements Runnable {
 
             if (correlationEntry.getKey().size() == 1) {
                 if (!flag) {
-                    firstCK = referencingTables.get(scaledCorrelationEntry.getKey()).get(0);
+                    firstCK = referencingTables.get(scaledRVEntry.getKey()).get(0);
                     firstSourceTableIndex = this.mergedDegreeTitle.get(firstCK.sourceTable).indexOf(firstCK);
                     flag = true;
                 }
@@ -77,8 +78,8 @@ public class ParaKeyIdAssign implements Runnable {
 
             } else if (correlationEntry.getKey().size() == 2 && correlationEntry.getValue() > 0) {
                 if (!flag) {
-                    firstCK = referencingTables.get(scaledCorrelationEntry.getKey()).get(0);
-                    secondCK = referencingTables.get(scaledCorrelationEntry.getKey()).get(1);
+                    firstCK = referencingTables.get(scaledRVEntry.getKey()).get(0);
+                    secondCK = referencingTables.get(scaledRVEntry.getKey()).get(1);
                     firstSourceTableIndex = this.mergedDegreeTitle.get(firstCK.sourceTable).indexOf(firstCK);
                     secondSourceTableIndex = this.mergedDegreeTitle.get(secondCK.sourceTable).indexOf(secondCK);
                     flag = true;
@@ -88,7 +89,7 @@ public class ParaKeyIdAssign implements Runnable {
                 threeKeyGen(correlationEntry, rvPKids);
             }
         }
-        referencingIDs.put(scaledCorrelationEntry.getKey(), rvPKids);
+        referencingIDs.put(scaledRVEntry.getKey(), rvPKids);
     }
 
     @Override
@@ -147,15 +148,15 @@ public class ParaKeyIdAssign implements Runnable {
 
         for (int k = 0; k < scaledCorrelationPair.getKey().size() && scaledCorrelationPair.getValue() != 0; k++) {
             ArrayList<Integer> jointDegree = scaledCorrelationPair.getKey().get(k);
-            int[] idsWithJD = this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).ids;
-            int startingIDindex = this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]];
+            int[] idsWithJD = this.avaInfo.get(referencingTables.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).ids;
+            int startingIDindex = this.avaInfo.get(referencingTables.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]];
             for (int i = 0; i < frequency; i++) {
                 int jdID = idsWithJD[startingIDindex];
                 startingIDindex++;
                 startingIDindex = startingIDindex % idsWithJD.length;
                 fkIDs[k][i] = "" + jdID;
             }
-            this.avaInfo.get(referencingTables.get(scaledCorrelationEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]] = startingIDindex;
+            this.avaInfo.get(referencingTables.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]] = startingIDindex;
         }
 
         String[] combinedKeys = fkIDs[0];
@@ -176,7 +177,7 @@ public class ParaKeyIdAssign implements Runnable {
     }
 
     private void initializeParameter() {
-        referTable = scaledCorrelationEntry.getKey();
+        referTable = scaledRVEntry.getKey();
         fkTableIndexes = new int[referencingTables.get(referTable).size()];
         for (int i = 0; i < fkTableIndexes.length; i++) {
             ComKey ck = referencingTables.get(referTable).get(i);
@@ -232,6 +233,16 @@ public class ParaKeyIdAssign implements Runnable {
             id++;
         }
         this.avaInfo.get(firstCK.sourceTable).get(jointDegree).startIndex[firstSourceTableIndex] = fk1StartingIndex;
+    }
+
+    public void setInitials(int[][][] rvFKIDs, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle, HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution, HashMap<String, Integer> scaledTableSize, String delimiter) {
+        
+        this.rvFKIDs = rvFKIDs;    
+        this.mergedDegreeTitle = mergedDegreeTitle;
+                this.originalReverseRVDistribution = originalReverseRVDistribution;
+                this.scaledTableSize = scaledTableSize;
+                this.delimiter = delimiter;
+   
     }
 
 }
