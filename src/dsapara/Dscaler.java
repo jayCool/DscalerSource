@@ -431,7 +431,8 @@ public class Dscaler {
                 thread.start();
             } else {
                 ParaReferencingOnlyTableFKPairing paraReferencingOnlyTableFKPairing = new ParaReferencingOnlyTableFKPairing();
-                paraReferencingOnlyTableFKPairing.setInitials(jointDegreeAvaStats,scaledRVEntry,rvFKIDs, this.originalDB.mergedDegreeTitle, originalReverseRVDistribution, scaledTableSize, delimiter);
+                paraReferencingOnlyTableFKPairing.setInitials(originalDB,jointDegreeAvaStats,scaledRVEntry,rvFKIDs, this.originalDB.mergedDegreeTitle,
+                        scaledTableSize, delimiter, referencingIDs);
               
                 Thread thread = new Thread(paraReferencingOnlyTableFKPairing);
                 threadList.add(thread);
