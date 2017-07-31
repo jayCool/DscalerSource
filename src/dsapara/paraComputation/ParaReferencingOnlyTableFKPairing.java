@@ -9,20 +9,10 @@ import db.structs.ComKey;
 import db.structs.DB;
 import dscaler.dataStruct.AvaliableStatistics;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -38,20 +28,18 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
     public HashMap<String, ArrayList<ComKey>> referencingTable;
     int currentID = 0;
 
-    public String delimiter = "\t";
     int[][][] rvFKIDs;
     HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvPKIDs = new HashMap<>();
 
     public HashMap<String, Integer> scaledTableSize;
 
-    public void setInitials(DB originalDB, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats, Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry, int[][][] rvFKIDs, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle, HashMap<String, Integer> scaledTableSize, String delimiter,
+    public void setInitials(DB originalDB, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats, Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry, int[][][] rvFKIDs, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle, HashMap<String, Integer> scaledTableSize,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs) {
         this.jointDegreeAvaStats = jointDegreeAvaStats;
         this.scaledRVEntry = scaledRVEntry;
         this.rvFKIDs = rvFKIDs;
         this.mergedDegreeTitle = mergedDegreeTitle;
         this.scaledTableSize = scaledTableSize;
-        this.delimiter = delimiter;
         this.referencingIDs = referencingIDs;
         this.originalDB = originalDB;
         this.referencingTable = originalDB.fkRelation;
