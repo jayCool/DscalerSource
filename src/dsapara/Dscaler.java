@@ -226,34 +226,14 @@ public class Dscaler {
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV = new HashMap<>();
         HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap = mapJDIDTORVID(scaledRVPKIDs, jointDegreeAvaStats, originalCoDa.kvDistribution,
                 scaledReverseKV, kvTables);
-
+        
         this.originalCoDa.dropKVDis();
         
         System.out.println("====================Generate KV Tables==========================");
-        HashMap<String, HashMap<Integer, Integer>> localkeyMaps = localequatingIDs(scaledReverseKV,
-                this.originalCoDa.reverseKV, kvTables);
-        scaledReverseKV = null;
-        //reverseKeyDistribution = null;
-        this.originalCoDa.reverseKV = null;
-        localKeyIDs(scaledRVFKIDs, localkeyMaps, scaledJDIDToRVIDMap, kvTables, "local");
-        scaledJDIDToRVIDMap = null;
-        localkeyMaps = null;
-
-        for (Thread thr : this.idthread) {
-            try {
-                thr.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        long ended = System.currentTimeMillis();
-
-        System.out.println("LocalRunning time=" + (ended - start - 0) / 1000 + "s");
-        PrintWriter time = new PrintWriter(new BufferedWriter(new FileWriter("time.txt", true)));
-        time.println(this.staticS + "    " + (ended - start - 0) / 1000);
-        //more code
-        time.close();
-    }
+       generateKVTables(scaledReverseKV,
+                this.originalCoDa.reverseKV, kvTables,scaledJDIDToRVIDMap,scaledRVFKIDs );
+        
+      }
 
     /**
      * This method calculates the avaliable statistics for the scaled
@@ -291,18 +271,18 @@ public class Dscaler {
 
     }
 
-    private HashMap<String, HashMap<Integer, Integer>> localequatingIDs(
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> keyVectorIDs,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV,
-            ArrayList<String> refTables) {
-        HashMap<String, HashMap<Integer, Integer>> result = new HashMap<>();
+    private void generateKVTables(
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseKV,
+            ArrayList<String> refTables,
+            HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap,
+             HashMap<String, ArrayList<ArrayList<Integer>>> scaledRVFKIDs) {
         ArrayList<Thread> liss = new ArrayList<>();
-        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> kvIDentry : keyVectorIDs.entrySet()) {
-            if (refTables.contains(kvIDentry.getKey())) {
+        for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledKVIDentry : scaledReverseKV.entrySet()) {
+            if (refTables.contains(scaledKVIDentry.getKey())) {
                 LocalRefTableGen lft = new LocalRefTableGen();
-                lft.result = result;
-                lft.reverseKV = reverseKV;
-                lft.kvIDentry = kvIDentry;
+                lft.setInitials( originalReverseKV, scaledKVIDentry,scaledJDIDToRVIDMap,scaledRVFKIDs, originalDB, outPath,delimiter);
+               
                 Thread thr = new Thread(lft);
                 liss.add(thr);
                 thr.start();
@@ -318,7 +298,7 @@ public class Dscaler {
             }
         }
 
-        return result;
+        return ;
     }
 
     private void jointDegreeDistributionSynthesis() {
@@ -366,16 +346,15 @@ public class Dscaler {
         }
     }
 
-    private void localKeyIDs(HashMap<String, ArrayList<ArrayList<Integer>>> assignIDs,
+    private void localKeyIDs(HashMap<String, ArrayList<ArrayList<Integer>>> scaledRVFKIDs,
             HashMap<String, HashMap<Integer, Integer>> localkeyMaps,
-            HashMap<String, HashMap<Integer, Integer>> scaledBiMap,
+            HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap,
             ArrayList<String> keyTables, String option) throws IOException {
         for (Entry<String, HashMap<Integer, Integer>> entry : localkeyMaps.entrySet()) {
             int count = 0;
             String curTable = entry.getKey();
-            //System.out.println(entry.getKey());
             String refTable = "";
-            for (String ref : assignIDs.keySet()) {
+            for (String ref : scaledRVFKIDs.keySet()) {
                 if (ref.equals(curTable)) {
                     refTable = ref;
                 }
@@ -389,8 +368,8 @@ public class Dscaler {
                 int size = this.originalDB.tables[tableNum].fkSize;
                 for (Entry<Integer, Integer> entry2 : entry.getValue().entrySet()) {
                     pw.write("" + entry2.getKey());
-                    int corId = scaledBiMap.get(entry.getKey()).get(entry2.getKey());
-                    for (int t : assignIDs.get(refTable).get(corId)) {
+                    int corId = scaledJDIDToRVIDMap.get(entry.getKey()).get(entry2.getKey());
+                    for (int t : scaledRVFKIDs.get(refTable).get(corId)) {
                         pw.write(delimiter + t);
                     }
                     String rrid = "" + entry2.getValue();
@@ -423,7 +402,6 @@ public class Dscaler {
                 referencingOnlyTableGen.setInitials(originalReverseRVDistribution, scaledTableSize, outPath, originalDB, delimiter);
 
                 Thread thread = new Thread(referencingOnlyTableGen);
-                idthread.add(thread);
                 thread.start();
             } else {
                 ParaReferencingOnlyTableFKPairing paraReferencingOnlyTableFKPairing = new ParaReferencingOnlyTableFKPairing();
