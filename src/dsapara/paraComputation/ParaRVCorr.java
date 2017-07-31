@@ -568,12 +568,12 @@ public class ParaRVCorr implements Runnable {
         for (ArrayList<ArrayList<Integer>> rv : originalCoDa.rvDistribution.get(curTable).keySet()) {
             long product = 1;
             for (int i = 0; i < rv.size(); i++) {
-                product *= originalCoDa.jointDegreeDis.get(comkeys.get(i)).get(rv.get(i));
+                product *= originalCoDa.jointDegreeDistribution.get(comkeys.get(i)).get(rv.get(i));
             }
             rvAppearance.put(rv, product);
         }
 
-        return new Sort().sortOnKeyAppearance(rvAppearance, comkeys, referencingComKeyMap, originalCoDa.jointDegreeDis);
+        return new Sort().sortOnKeyAppearance(rvAppearance, comkeys, referencingComKeyMap, originalCoDa.jointDegreeDistribution);
     }
 
  

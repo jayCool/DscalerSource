@@ -23,13 +23,13 @@ import java.util.logging.Logger;
 public class CoDa {
 
     public HashMap<ComKey, int[]> fkIDCounts = new HashMap<>();
-    public HashMap<ComKey, HashMap<Integer, Integer>> idFreqDis = new HashMap<>();
+    public HashMap<ComKey, HashMap<Integer, Integer>> idDegreeDistribution = new HashMap<>();
 
     public HashMap<String, ArrayList<ComKey>> jointDegreeTable = new HashMap<>(); //key is the table A, values are the tables REFERENCING table A
 
     public HashMap<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> jointDegrees = new HashMap<>();
     public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> reverseJointDegrees = new HashMap<>();
-    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeDis = new HashMap<>();
+    public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> jointDegreeDistribution = new HashMap<>();
 
     public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> tupleRVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseRVs = new HashMap<>();
@@ -37,10 +37,10 @@ public class CoDa {
 
     public HashMap<String, ArrayList<ArrayList<ArrayList<Integer>>>> idKVs = new HashMap<>();
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> reverseKV = new HashMap<>();
-    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> kvDis = new HashMap<>();
+    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> kvDistribution = new HashMap<>();
 
     public void dropKVDis() {
-        this.kvDis = null;
+        this.kvDistribution = null;
     }
 
     /**
@@ -175,7 +175,7 @@ public class CoDa {
                             kvDisMap.put(kv, 1 + kvDisMap.get(kv));
                         }
                     }
-                    kvDis.put(table, kvDisMap);
+                    kvDistribution.put(table, kvDisMap);
                     reverseKV.put(table, kvMap);
                 }
             }
@@ -194,7 +194,7 @@ public class CoDa {
                     frequencyMap.put(counts, 1 + frequencyMap.get(counts));
                 }
             }
-            idFreqDis.put(entry.getKey(), frequencyMap);
+            idDegreeDistribution.put(entry.getKey(), frequencyMap);
         }
     }
 
@@ -209,7 +209,7 @@ public class CoDa {
                     degreeFreq.put(entry.getValue().get(i), 1 + degreeFreq.get(entry.getValue().get(i)));
                 }
             }
-            jointDegreeDis.put(entry.getKey(), degreeFreq);
+            jointDegreeDistribution.put(entry.getKey(), degreeFreq);
         }
         jointDegrees = null;
         fkIDCounts = null;
@@ -218,13 +218,13 @@ public class CoDa {
     
    
     public void dropIdFreqDis() {
-        idFreqDis = null;
+        idDegreeDistribution = null;
     }
 
     public ArrayList<HashMap<Integer, Integer>> extractDegreeDistributions(ArrayList<ComKey> keys) {
         ArrayList<HashMap<Integer, Integer>> degreeDistributions = new ArrayList<>();
         for (ComKey ck : keys) {
-                degreeDistributions.add(idFreqDis.get(ck));
+                degreeDistributions.add(idDegreeDistribution.get(ck));
             }
         return degreeDistributions;
     }

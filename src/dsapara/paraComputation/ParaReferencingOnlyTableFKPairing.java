@@ -23,24 +23,24 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
     public Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry;
     public HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats;
     public HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
-    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs;
+    public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> rvPKIDs;
     public DB originalDB;
     public HashMap<String, ArrayList<ComKey>> referencingTable;
     int currentID = 0;
 
     int[][][] rvFKIDs;
-    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvPKIDs = new HashMap<>();
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> rvPKIDsPerTable = new HashMap<>();
 
     public HashMap<String, Integer> scaledTableSize;
 
     public void setInitials(DB originalDB, HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats, Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry, int[][][] rvFKIDs, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle, HashMap<String, Integer> scaledTableSize,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> referencingIDs) {
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> rvPKIDs) {
         this.jointDegreeAvaStats = jointDegreeAvaStats;
         this.scaledRVEntry = scaledRVEntry;
         this.rvFKIDs = rvFKIDs;
         this.mergedDegreeTitle = mergedDegreeTitle;
         this.scaledTableSize = scaledTableSize;
-        this.referencingIDs = referencingIDs;
+        this.rvPKIDs = rvPKIDs;
         this.originalDB = originalDB;
         this.referencingTable = originalDB.fkRelation;
 
@@ -80,7 +80,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
         int firstCKIndex = this.mergedDegreeTitle.get(firstCK.sourceTable).indexOf(firstCK);
 
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
-            rvPKIDs.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
+            rvPKIDsPerTable.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
             ArrayList<Integer> jointDegree = scaledRVFrequency.getKey().get(0);
             int frequency = scaledRVFrequency.getValue();
 
@@ -106,7 +106,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
         int printedNumber = 0;
 
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
-            rvPKIDs.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
+            rvPKIDsPerTable.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
             int frequency = scaledRVFrequency.getValue();
             printedNumber += frequency;
 
@@ -125,7 +125,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
                 for (int idFrequency = 0; idFrequency < firstFKIDFrequencs[firstCKIDIndex]; idFrequency++) {
                     rvFKIDs[tableID][currentID][0] = jointDegreeAvaStats.get(firstCK.sourceTable).get(scaledRVFrequency.getKey().get(0)).ids[firstCKIDIndex];
                     rvFKIDs[tableID][currentID][1] = jointDegreeAvaStats.get(secondCK.sourceTable).get(scaledRVFrequency.getKey().get(1)).ids[secondCKStartingIndex];
-                    rvPKIDs.get(scaledRVFrequency.getKey()).add(currentID);
+                    rvPKIDsPerTable.get(scaledRVFrequency.getKey()).add(currentID);
                     secondCKStartingIndex++;
                     secondCKStartingIndex = secondCKStartingIndex % secondCKIdsLength;
                     currentID++;
@@ -144,7 +144,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
     private void generateTableForMoreKeys(int tableID
     ) {
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
-            rvPKIDs.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
+            rvPKIDsPerTable.put(scaledRVFrequency.getKey(), new ArrayList<Integer>(scaledRVFrequency.getValue()));
             int[][] fkIDs = new int[scaledRVFrequency.getValue()][scaledRVFrequency.getKey().size()];
             int frequency = scaledRVFrequency.getValue();
             int[] fkTableIndexes = calculateFKIndexOfJD(tableID);
@@ -167,7 +167,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
                 for (int k = 0; k < fkIDs[i].length; k++) {
                     rvFKIDs[tableID][currentID][k] = fkIDs[i][k];
                 }
-                rvPKIDs.get(scaledRVFrequency.getKey()).add(currentID);
+                rvPKIDsPerTable.get(scaledRVFrequency.getKey()).add(currentID);
                 currentID++;
             }
         }
@@ -185,7 +185,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
     private void generateSameAmountOfTuplesForCandidateIDs(int tableID, int frequency, int[] candidateIDs, ArrayList<ArrayList<Integer>> rv) {
         for (int i = 0; i < frequency / candidateIDs.length * candidateIDs.length; i++) {
             this.rvFKIDs[tableID][currentID][0] = candidateIDs[i % candidateIDs.length];
-            rvPKIDs.get(rv).add(currentID);
+            rvPKIDsPerTable.get(rv).add(currentID);
             currentID++;
         }
     }
@@ -209,7 +209,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
 
         for (int i = frequency / candidateIDs.length * candidateIDs.length; i < frequency; i++) {
             rvFKIDs[tableID][currentID][0] = candidateIDs[firstCKStartingIndex];
-            rvPKIDs.get(rv).add(currentID);
+            rvPKIDsPerTable.get(rv).add(currentID);
             firstCKStartingIndex++;
             firstCKStartingIndex = firstCKStartingIndex % candidateIDs.length;
             currentID++;
