@@ -303,7 +303,7 @@ public class JDCorrelation extends PrintFunction implements Runnable {
     }
 
     /**
-     * Cleans the degreedistribution with 0 budget
+     * Cleans the degree distribution with 0 budget
      *
      * @param scaledDegreeDistributions
      * @param calculatedJD

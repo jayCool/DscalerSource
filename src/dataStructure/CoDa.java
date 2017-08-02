@@ -8,11 +8,9 @@ package dataStructure;
 import db.structs.ComKey;
 import db.structs.DB;
 import main.Dscaler;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -119,7 +117,7 @@ public class CoDa {
         }
     }
     /**
-     * This method parallely calculates RV Distribution 
+     * This method calculates RV Distribution in parallel
      * @param originalDB 
      */
     public void calculateRV(DB originalDB) {
@@ -183,7 +181,10 @@ public class CoDa {
         tupleRVs = null;
 
     }
-
+    
+    /**
+     * Calculate degree distribution for each ID
+     */
     public void calculateDegreeDistribution() {
         for (Map.Entry<ComKey, int[]> entry : fkIDCounts.entrySet()) {
             HashMap<Integer, Integer> frequencyMap = new HashMap<>();
@@ -198,29 +199,17 @@ public class CoDa {
         }
     }
 
-    /*
-    public void processJointDis() {
-        for (Map.Entry<ArrayList<ComKey>, ArrayList<ArrayList<Integer>>> entry : jointDegrees.entrySet()) {
-            HashMap<ArrayList<Integer>, Integer> degreeFreq = new HashMap<>();
-            for (int i = 0; i < entry.getValue().size(); i++) {
-                if (!degreeFreq.containsKey(entry.getValue().get(i))) {
-                    degreeFreq.put(entry.getValue().get(i), 1);
-                } else {
-                    degreeFreq.put(entry.getValue().get(i), 1 + degreeFreq.get(entry.getValue().get(i)));
-                }
-            }
-            jointDegreeDistribution.put(entry.getKey(), degreeFreq);
-        }
-        jointDegrees = null;
-        fkIDCounts = null;
-      
-    }  */
-    
+ 
    
     public void dropIdFreqDis() {
         idDegreeDistribution = null;
     }
-
+    
+    /**
+     * Extract the degree distributions for given composite keys
+     * @param keys
+     * @return degreeDistributions
+     */
     public ArrayList<HashMap<Integer, Integer>> extractDegreeDistributions(ArrayList<ComKey> keys) {
         ArrayList<HashMap<Integer, Integer>> degreeDistributions = new ArrayList<>();
         for (ComKey ck : keys) {
