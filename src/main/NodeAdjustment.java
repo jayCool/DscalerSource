@@ -41,7 +41,7 @@ public class NodeAdjustment {
         }
         degreeList.clear();
         frequencies.clear();
-        for (int i = minDegree; i < maxDegree; i++) {
+        for (int i = minDegree; i <= maxDegree; i++) {
             degreeList.add(i);
             if (!degreeFreq.containsKey(i)) {
                 frequencies.add(0);
@@ -67,7 +67,7 @@ public class NodeAdjustment {
         ArrayList<Integer> degreeList = extractDegreeList(degreeDis);
 
         ArrayList<Integer> frequencies = coordinateTheFrequencies(degreeDis, degreeList);
-
+        
         smoothAndExtendDegrees(degreeList, frequencies);
 
         evenDistributionOfDiffs(scaledNodeSize, frequencies);

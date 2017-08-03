@@ -65,7 +65,7 @@ public class DegreeScaling implements Runnable {
         NodeAdjustment nodeAdjustment = new NodeAdjustment();
         nodeAdjustment.adjustment(scaleDegree, scaledNodeSize);
         if (comKey.getReferencingTable().equals("album_star") && comKey.getSourceTable().equals("album")){
-                System.err.println("id: " + originalDegreeDis);
+                System.err.println("id: " + scaleDegree);
             }
         EdgeAdjust edgeAdjust = new EdgeAdjust(System.currentTimeMillis());
         if (scaleDegree.size()==1){
