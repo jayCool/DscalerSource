@@ -26,10 +26,10 @@ public class ArgumentParser {
     @Option(name = "-o", usage = "ouput of the folder", metaVar = "OUTPUT")
     private String outPath = "";
 
-    @Option(name = "-d", usage = "Delimilter of the fields", metaVar = "MODE")
+    @Option(name = "-d", usage = "Delimilter of the fields", metaVar = "Delimilter")
     private String delimiter = "\\s+";
 
-    @Option(name = "-f", usage = "Ignore the first line", metaVar = "Thread")
+    @Option(name = "-f", usage = "Ignore the first line", metaVar = "IGNORE-FIRST-LINE")
     private boolean ignoreFirst = false;
 
     @Option(name = "-static", usage = "Static scale of the database", metaVar = "StaticScale")

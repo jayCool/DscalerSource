@@ -22,7 +22,6 @@ public class DegreeScaling implements Runnable {
         this.s_n = s_n;
         this.comKey = comKey;
         this.idDegreeDistribution = idDegreeDistribution;
-
     }
     
     /**
@@ -59,11 +58,19 @@ public class DegreeScaling implements Runnable {
 
     @Override
     public void run() {
+         if (comKey.getReferencingTable().equals("album_star") && comKey.getSourceTable().equals("album")){
+                System.err.println("id: " + originalDegreeDis);
+            }
         HashMap<Integer, Integer> scaleDegree = saticScale(originalDegreeDis, s_n);
         NodeAdjustment nodeAdjustment = new NodeAdjustment();
         nodeAdjustment.adjustment(scaleDegree, scaledNodeSize);
-
+        if (comKey.getReferencingTable().equals("album_star") && comKey.getSourceTable().equals("album")){
+                System.err.println("id: " + originalDegreeDis);
+            }
         EdgeAdjust edgeAdjust = new EdgeAdjust(System.currentTimeMillis());
+        if (scaleDegree.size()==1){
+            System.err.println("ck: " + comKey + "\t" + scaleDegree);
+        }
         HashMap<Integer, Integer> smoothDegree = edgeAdjust.smoothDegree(scaleDegree, scaledEdgeSize, scaledNodeSize);
         idDegreeDistribution.put(comKey, smoothDegree);
     }

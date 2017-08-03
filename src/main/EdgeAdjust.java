@@ -30,14 +30,6 @@ class EdgeAdjust extends Sort {
         HashMap<Integer, ArrayList<Integer>> result = new HashMap<>();
         for (int i = 0; i < degreeList.size(); i++) {
             if (frequencies.get(i) > 0) {
-                /*
-                for (int j = i + 1; j < degreeList.size(); j++) {
-                    ArrayList<Integer> arr = new ArrayList<>();
-                    arr.add(i);
-                    arr.add(j);
-                    result.put(degreeList.get(j) - degreeList.get(i), arr);
-                }
-                 */
                 for (int j = 0; j < degreeList.size(); j++) {
                     int diff = degreeList.get(j) - degreeList.get(i);
                     if (result.containsKey(diff)) {
@@ -67,16 +59,15 @@ class EdgeAdjust extends Sort {
     HashMap<Integer, Integer> smoothDegree(HashMap<Integer, Integer> scaleDegree, int scaledEdgeSize, int scaledNodeSize){
         ArrayList<Integer> degreeList = new ArrayList<>();
         ArrayList<Integer> frequencies = new ArrayList<>();
-
+        
         closingDegreeGap(scaleDegree, degreeList, frequencies);
-
         HashMap<Integer, ArrayList<Integer>> adjustableDiffMap = calAdjustableDiffAndDegreePairs(degreeList, frequencies);
         boolean maxflag = false;
 
         int edgeDiff = -product(degreeList, frequencies) + scaledEdgeSize;
         int ender = frequencies.size() - 1;
         int starter = 0;
-
+        
         while (!adjustableDiffMap.containsKey(edgeDiff) && edgeDiff != 0) {
             RunningException.checkTooLongRunTime(starttime);
 
@@ -158,7 +149,7 @@ class EdgeAdjust extends Sort {
     private void closingDegreeGap(HashMap<Integer, Integer> scaleDegree, ArrayList<Integer> degreeList, ArrayList<Integer> frequencies) {
         int maxDegree = Collections.max(scaleDegree.keySet());
         int minDegree = Collections.min(scaleDegree.keySet());
-        for (int i = minDegree; i < maxDegree; i++) {
+        for (int i = minDegree; i <=maxDegree; i++) {
             if (!scaleDegree.containsKey(i)) {
                 scaleDegree.put(i, 0);
             }

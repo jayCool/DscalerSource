@@ -56,10 +56,11 @@ public class CoDa {
             int[] idcounts = new int[db.getTableSize(srcTable)];
 
             for (int i = 0; i < db.getTableSize(tableName); i++) {
-                int[] arr = db.getFKValues(tableID, i);
-                int id = arr[colNum - 1];
+                int[] fks = db.getFKValues(tableID, i);
+                int id = fks[colNum - 1];
                 idcounts[id] += 1;
             }
+           
             fkIDCounts.put(ck, idcounts);
         }
     }

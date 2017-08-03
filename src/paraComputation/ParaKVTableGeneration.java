@@ -26,7 +26,7 @@ import java.util.logging.Logger;
 public class ParaKVTableGeneration implements Runnable {
 
     HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseKV;
-    Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledKVIDEntry;
+    Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledKVIDs;
     
     HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap;
     HashMap<String, ArrayList<ArrayList<Integer>>> scaledRVFKIDs;
@@ -40,18 +40,18 @@ public class ParaKVTableGeneration implements Runnable {
 
     @Override
     public void run() {
-        HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalSumKVMap = calculateKVSumMap(originalReverseKV.get(scaledKVIDEntry.getKey()).keySet());
+        HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalSumKVMap = calculateKVSumMap(originalReverseKV.get(scaledKVIDs.getKey()).keySet());
 
-        curTable = scaledKVIDEntry.getKey();
+        curTable = scaledKVIDs.getKey();
         curTableID = originalDB.getTableID(curTable);
         int loopTimes = 0;
 
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outPath + "/" + curTable + ".txt")), 100000);
 
-            while (scaledKVIDEntry.getValue().keySet().size() > 0) {
+            while (scaledKVIDs.getValue().keySet().size() > 0) {
                 ArrayList<ArrayList<ArrayList<Integer>>> removedKVs = new ArrayList<>();
-                for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> scaledKVIDEntry : scaledKVIDEntry.getValue().entrySet()) {
+                for (Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> scaledKVIDEntry : scaledKVIDs.getValue().entrySet()) {
                     int frequency = scaledKVIDEntry.getValue().size();
 
                     ArrayList<ArrayList<Integer>> originalClosestKV = extractKV(scaledKVIDEntry.getKey(), originalSumKVMap, loopTimes);
@@ -62,7 +62,7 @@ public class ParaKVTableGeneration implements Runnable {
                         continue;
                     }
 
-                    while (originalReverseKV.get(this.scaledKVIDEntry.getKey()).get(originalClosestKV).isEmpty()) {
+                    while (originalReverseKV.get(this.scaledKVIDs.getKey()).get(originalClosestKV).isEmpty()) {
                         cleanZeroIDKV(originalClosestKV, originalSumKVMap, scaledKVIDEntry);
                         originalClosestKV = extractKV(scaledKVIDEntry.getKey(), originalSumKVMap, loopTimes);
                     }
@@ -72,13 +72,13 @@ public class ParaKVTableGeneration implements Runnable {
                 }
                 loopTimes++;
                 for (ArrayList<ArrayList<Integer>> removedKV : removedKVs) {
-                    scaledKVIDEntry.getValue().remove(removedKV);
+                    scaledKVIDs.getValue().remove(removedKV);
                 }
             }
         } catch (IOException ex) {
             Logger.getLogger(ParaKVTableGeneration.class.getName()).log(Level.SEVERE, null, ex);
         }
-        originalReverseKV.remove(scaledKVIDEntry.getKey());
+        originalReverseKV.remove(scaledKVIDs.getKey());
     }
 
     /**
@@ -166,7 +166,7 @@ public class ParaKVTableGeneration implements Runnable {
             String outPath,
             String delimiter) {
         this.originalReverseKV = originalReverseKV;
-        this.scaledKVIDEntry = scaledKVIDentry;
+        this.scaledKVIDs = scaledKVIDentry;
         this.scaledJDIDToRVIDMap = scaledJDIDToRVIDMap;
         this.scaledRVFKIDs = scaledRVFKIDs;
         this.originalDB = originalDB;
@@ -183,7 +183,7 @@ public class ParaKVTableGeneration implements Runnable {
     private ArrayList<ArrayList<Integer>> extractKV(ArrayList<ArrayList<Integer>> scaledKV,
             HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalSumKVMap, int loopTimes) {
 
-        if (originalReverseKV.get(this.scaledKVIDEntry.getKey()).containsKey(scaledKV)) {
+        if (originalReverseKV.get(this.scaledKVIDs.getKey()).containsKey(scaledKV)) {
             return scaledKV;
         } else if (loopTimes > 1) {
             return calculateClosestKVBasedOnSum(scaledKV, originalSumKVMap);
@@ -214,7 +214,7 @@ public class ParaKVTableGeneration implements Runnable {
      * @param concurrentScaledKVIDEntry 
      */
     private void cleanZeroIDKV(ArrayList<ArrayList<Integer>> originalClosestKV, HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalSumKVMap, Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> concurrentScaledKVIDEntry) {
-        originalReverseKV.get(this.scaledKVIDEntry.getKey()).remove(originalClosestKV);
+        originalReverseKV.get(this.scaledKVIDs.getKey()).remove(originalClosestKV);
         int originalKVSum = calculateKVSum(originalClosestKV);
         originalSumKVMap.get(originalKVSum).remove(originalClosestKV);
         if (originalSumKVMap.get(originalKVSum).isEmpty()) {
@@ -232,10 +232,10 @@ public class ParaKVTableGeneration implements Runnable {
     private void printTuples(ArrayList<ArrayList<Integer>> originalClosestKV, int frequency,
             Map.Entry<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> scaledKVIDEntry, BufferedWriter bw
     ) {
-        int originalNumberOfIDs = originalReverseKV.get(this.scaledKVIDEntry.getKey()).get(originalClosestKV).size();
+        int originalNumberOfIDs = originalReverseKV.get(this.scaledKVIDs.getKey()).get(originalClosestKV).size();
 
         ArrayList<Integer> oldIDs = new ArrayList<>();
-        for (int i : originalReverseKV.get(this.scaledKVIDEntry.getKey()).get(originalClosestKV)) {
+        for (int i : originalReverseKV.get(this.scaledKVIDs.getKey()).get(originalClosestKV)) {
             oldIDs.add(i);
         }
         Collections.shuffle(oldIDs);
