@@ -36,7 +36,7 @@ public class ParaMapJDToRV implements Runnable {
         HashMap<ArrayList<ArrayList<Integer>>, Integer> rvIDStartingIndex = new HashMap<>();
         HashMap<ArrayList<Integer>, Integer> jdIDStartingIndex = new HashMap<>();
 
-        while (scaledRVSumMap.isEmpty() && scaledJDSumMap.isEmpty()) {
+        while (!scaledRVSumMap.isEmpty() && !scaledJDSumMap.isEmpty()) {
             for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry : originalKVDistribution.get(table).entrySet()) {
                 if (scaledRVSumMap.isEmpty() || scaledJDSumMap.isEmpty()) {
                     break;
@@ -48,8 +48,11 @@ public class ParaMapJDToRV implements Runnable {
                 while (expectedFrequency > 0 && !scaledRVSumMap.isEmpty() && !scaledJDSumMap.isEmpty()) {
                     ArrayList<ArrayList<Integer>> scaledClosestRV = calculateClosestRV(scaledRVSumMap, originalRV);
                     ArrayList<Integer> scaledClosestJD = calculateClosestJD(table, originalJD, scaledJDSumMap);
-
-                    expectedFrequency = synthesizeOneKV(scaledRVSumMap, scaledJDSumMap, expectedFrequency, scaledClosestJD,
+                    boolean matched = false;
+                    if (originalJD.equals(scaledClosestJD) && originalRV.equals(scaledClosestRV)) {
+                        matched = true;
+                    }
+                    expectedFrequency = synthesizeOneKV(matched, originalKVentry, scaledRVSumMap, scaledJDSumMap, expectedFrequency, scaledClosestJD,
                             scaledClosestRV, table, rvIDStartingIndex, jdIDStartingIndex, mapJDToRV, kvToIDsWithoutTable);
 
                 }
@@ -257,7 +260,8 @@ public class ParaMapJDToRV implements Runnable {
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
             Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKentry,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalKVDistribution) {
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalKVDistribution,
+            HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV) {
         this.scaledJDIDToRVIDMap = scaledJDIDToRVIDMap;
         this.sRatio = sRatio;
         this.jointDegreeAvaStats = jointDegreeAvaStats;
@@ -312,10 +316,16 @@ public class ParaMapJDToRV implements Runnable {
      */
     private ArrayList<ArrayList<Integer>> formScaledKV(ArrayList<Integer> scaledClosestJD,
             ArrayList<ArrayList<Integer>> scaledClosestRV,
-            HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable) {
+            HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable,
+            Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry, boolean matched) {
         ArrayList<ArrayList<Integer>> scaledKV = new ArrayList<>();
-        scaledKV.add(scaledClosestJD);
-        scaledKV.addAll(scaledClosestRV);
+        if (matched) {
+            scaledKV= originalKVentry.getKey();
+        } else {
+            scaledKV.add(scaledClosestJD);
+            scaledKV.addAll(scaledClosestRV);
+        }
+        
         if (!kvToIDsWithoutTable.containsKey(scaledKV)) {
             kvToIDsWithoutTable.put(scaledKV, new ArrayList<Integer>());
         }
@@ -324,7 +334,7 @@ public class ParaMapJDToRV implements Runnable {
     }
 
     private void updateIDMaps(int incrementalFrequency, HashMap<Integer, Integer> mapJDToRV,
-            int[] scaledJDIDs, ArrayList<Integer> scaledRVIDs, int rvIndex, ArrayList<ArrayList<Integer>> scaledKV, 
+            int[] scaledJDIDs, ArrayList<Integer> scaledRVIDs, int rvIndex, ArrayList<ArrayList<Integer>> scaledKV,
             HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable, int jdIndex) {
         for (int i = 0; i < incrementalFrequency; i++) {
             mapJDToRV.put(scaledJDIDs[i + jdIndex], scaledRVIDs.get(i + rvIndex));
@@ -358,11 +368,12 @@ public class ParaMapJDToRV implements Runnable {
         }
     }
 
-    private int synthesizeOneKV(HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap, 
+    private int synthesizeOneKV(boolean matched, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry,
+            HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap,
             HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap, int expectedFrequency,
-            ArrayList<Integer> scaledClosestJD, ArrayList<ArrayList<Integer>> scaledClosestRV, String table, 
-            HashMap<ArrayList<ArrayList<Integer>>, Integer> rvIDStartingIndex, 
-            HashMap<ArrayList<Integer>, Integer> jdIDStartingIndex, HashMap<Integer, Integer> mapJDToRV, 
+            ArrayList<Integer> scaledClosestJD, ArrayList<ArrayList<Integer>> scaledClosestRV, String table,
+            HashMap<ArrayList<ArrayList<Integer>>, Integer> rvIDStartingIndex,
+            HashMap<ArrayList<Integer>, Integer> jdIDStartingIndex, HashMap<Integer, Integer> mapJDToRV,
             HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable) {
         ArrayList<Integer> scaledRVIDs = scaledRVPKentry.getValue().get(scaledClosestRV);
         int[] scaledJDIDs = jointDegreeAvaStats.get(table).get(scaledClosestJD).ids;
@@ -370,7 +381,7 @@ public class ParaMapJDToRV implements Runnable {
         initializeIDStartingIndexes(rvIDStartingIndex, scaledClosestRV, jdIDStartingIndex, scaledClosestJD);
         int incrementalFrequency = calculateIncrementalFrequency(scaledRVIDs, rvIDStartingIndex, scaledClosestRV, scaledJDIDs, jdIDStartingIndex, scaledClosestJD, expectedFrequency);
 
-        ArrayList<ArrayList<Integer>> scaledKV = formScaledKV(scaledClosestJD, scaledClosestRV, kvToIDsWithoutTable);
+        ArrayList<ArrayList<Integer>> scaledKV = formScaledKV(scaledClosestJD, scaledClosestRV, kvToIDsWithoutTable, originalKVentry, matched);
 
         int rvIndex = rvIDStartingIndex.get(scaledClosestRV);
         int jdIndex = jdIDStartingIndex.get(scaledClosestJD);

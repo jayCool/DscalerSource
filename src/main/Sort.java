@@ -260,6 +260,16 @@ public class Sort {
         return sorted;
     }
        
+       public List<Map.Entry<Integer, Integer>> sortOnValueAesc(HashMap<Integer, Integer> map) {
+        List<Map.Entry<Integer, Integer>> sorted = new ArrayList<Map.Entry<Integer, Integer>>(map.entrySet());
+        Collections.sort(sorted, new Comparator<Map.Entry<Integer, Integer>>() {
+            public int compare(Map.Entry<Integer, Integer> o1, Map.Entry<Integer, Integer> o2) {
+                return (o1.getValue() - o2.getValue());
+            }
+        });
+        return sorted;
+    }
+       
         public List<Map.Entry<ArrayList<Integer>, Integer>> sortOnValueIntegerAesc(HashMap<ArrayList<Integer>, Integer> orders) {
         List<Map.Entry<ArrayList<Integer>, Integer>> sorted = new ArrayList<Map.Entry<ArrayList<Integer>, Integer>>(orders.entrySet());
         Collections.sort(sorted, new Comparator<Map.Entry<ArrayList<Integer>, Integer>>() {
@@ -308,47 +318,7 @@ public class Sort {
         });
         return sorted;
     }
-      /*          
-      public List<Map.Entry<Pair, Integer>> sortOnValue(HashMap<Pair, Integer> orders) {
-        List<Map.Entry<Pair, Integer>> sorted = new ArrayList<Map.Entry<Pair, Integer>>(orders.entrySet());
-        Collections.sort(sorted, new Comparator<Map.Entry<Pair, Integer>>() {
-            public int compare(Map.Entry<Pair, Integer> o1, Map.Entry<Pair, Integer> o2) {
-                return (o2.getValue() - o1.getValue());
-            }
-        });
-        return sorted;
-    }
-
-      
-      public List<Map.Entry<DefaultEdge, Double>> sortOnValueDefaultEdge(HashMap<DefaultEdge, Double> orders) {
-        List<Map.Entry<DefaultEdge, Double>> sorted = new ArrayList<Map.Entry<DefaultEdge, Double>>(orders.entrySet());
-        Collections.sort(sorted, new Comparator<Map.Entry<DefaultEdge, Double>>() {
-            public int compare(Map.Entry<DefaultEdge, Double> o1, Map.Entry<DefaultEdge, Double> o2) {
-                return (int) (o2.getValue() - o1.getValue());
-            }
-        });
-        return sorted;
-    }
-        public List<Map.Entry<String, Double>> sortOnValueString(HashMap<String, Double> orders) {
-        List<Map.Entry<String, Double>> sorted = new ArrayList<Map.Entry<String, Double>>(orders.entrySet());
-        Collections.sort(sorted, new Comparator<Map.Entry<String, Double>>() {
-            public int compare(Map.Entry<String, Double> o1, Map.Entry<String, Double> o2) {
-                return (int) (o2.getValue() - o1.getValue());
-            }
-        });
-        return sorted;
-    } 
-  //ascending order    
-  public List<Map.Entry<Pair, Integer>> sortOnKey(HashMap<Pair, Integer> orders) {
-        List<Map.Entry<Pair, Integer>> sorted = new ArrayList<Map.Entry<Pair, Integer>>(orders.entrySet());
-        Collections.sort(sorted, new Comparator<Map.Entry<Pair, Integer>>() {
-            public int compare(Map.Entry<Pair, Integer> o1, Map.Entry<Pair, Integer> o2) {
-                return (o1.getKey().getSum() - o2.getKey().getSum());
-            }
-        });
-        return sorted;
-    }
-  */
+    
     //sort the map based on key in ascending order
     public  List<Map.Entry<Integer, Integer>> sortOnKeyInteger(HashMap<Integer, Integer> orders) {
         List<Map.Entry<Integer, Integer>> sorted = new ArrayList<Map.Entry<Integer, Integer>>(orders.entrySet());
@@ -396,8 +366,7 @@ public class Sort {
   
 
     public List<Map.Entry<ArrayList<ArrayList<Integer>>, Long>> sortOnKeyAppearance(HashMap<ArrayList<ArrayList<Integer>>, Long> rvs,
-            final ArrayList<ArrayList<ComKey>> comkeys, HashMap<String, ArrayList<ComKey>> referenceTable, 
-            final HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, Integer>> mergedDistribution) {
+            final ArrayList<ArrayList<ComKey>> comkeys, HashMap<String, ArrayList<ComKey>> referenceTable) {
     List<Map.Entry<ArrayList<ArrayList<Integer>>, Long>> sorted = new ArrayList<Map.Entry<ArrayList<ArrayList<Integer>>, Long>>(rvs.entrySet());
         Collections.sort(sorted, new Comparator<Map.Entry<ArrayList<ArrayList<Integer>>, Long>>() {
             public int compare(Map.Entry<ArrayList<ArrayList<Integer>>, Long> o1, Map.Entry<ArrayList<ArrayList<Integer>>, Long> o2) {
@@ -412,31 +381,8 @@ public class Sort {
                 else {
                     return 0;
                 }
-                /*
-                for (int i=0;i<arr1.size();i++){
-                   sum1 *= mergedDistribution.get(comkeys.get(i)).get(arr1.get(i));
-              }
-              for (int i=0;i<arr2.size();i++){
-                   sum2 *= mergedDistribution.get(comkeys.get(i)).get(arr2.get(i));
-                  
-              }
-               if (sum1<sum2) return -1;
-               if (sum1>sum2) return 1;
-                
-               for (int i=0;i<arr1.size();i++){
-                   for (int j =0;j<arr1.size();j++){
-                       if (arr1.get(i).get(j)<arr2.get(i).get(j)){
-                           return 1;
-                       }
-                       if (arr1.get(i).get(j)>arr2.get(i).get(j)){
-                           return -1;
-                       }
-                       
-                   }
-               }
-               
-                return 1;
-*/            }
+            
+            }
         });
         
     return sorted;

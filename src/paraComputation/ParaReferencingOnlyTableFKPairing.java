@@ -66,6 +66,7 @@ public class ParaReferencingOnlyTableFKPairing implements Runnable {
                 generateTableForMoreKeys(tableID);
                 break;
         }
+        rvPKIDs.put(curTable, rvPKIDsPerTable);
 
     }
 
