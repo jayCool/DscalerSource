@@ -27,11 +27,9 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
     public Map.Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry;
     public HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> origianlReverseJointDegrees;
     public HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
-    public String outPath;
+    public String outPath = "";
     public DB originalDB;
     public String delimiter;
-
- 
 
     @Override
     public void run() {
@@ -59,17 +57,19 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
 
     /**
      * Output the table
-     * @param concurrentJDAvaHashMap 
+     *
+     * @param concurrentJDAvaHashMap
      */
     private void outputTable(ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> concurrentJDAvaHashMap) {
 
         BufferedWriter pw = null;
         try {
-            File file = new File(outPath + "/" + jdAvaEntry.getKey() + ".txt");
+            String curTable = jdAvaEntry.getKey();
+            File file = new File(outPath + "/" + curTable + ".txt");
             pw = new BufferedWriter(new FileWriter(file), 100000);
 
             int level = 0;
-            int tableNum = this.originalDB.getTableID(jdAvaEntry.getKey());
+            int tableNum = this.originalDB.getTableID(curTable);
 
             while (concurrentJDAvaHashMap.keySet().size() > 0) {
                 for (Map.Entry<ArrayList<Integer>, ArrayList<Integer>> jdEntry : concurrentJDAvaHashMap.entrySet()) {
@@ -96,10 +96,9 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
             }
         }
     }
-    
-    
+
     /**
-     * 
+     *
      * @param jdEntry
      * @return closestJD
      */
@@ -114,17 +113,16 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
             if (closestJointDegrees.size() == 0) {
                 return new ArrayList<>();
             }
-             retrivalIndex = rand.nextInt(closestJointDegrees.size());
+            retrivalIndex = rand.nextInt(closestJointDegrees.size());
             calculatedJD = closestJointDegrees.get(retrivalIndex);
             closestJointDegrees.remove(retrivalIndex);
         }
         return calculatedJD;
     }
-    
-       
-    
+
     /**
      * Calculates the closest JDs
+     *
      * @param jointDegree
      * @param originalJDSet
      * @return closestJDs
@@ -157,30 +155,30 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
         return closestJDs;
 
     }
-    
-    
+
     /**
      * Output the tuples
+     *
      * @param jdEntry
      * @param closestJD
      * @param concurrentJDAvaHashMap
      * @param frequency
      * @param pw
      * @param tableNum
-     * @throws IOException 
+     * @throws IOException
      */
     private void outputTuples(Map.Entry<ArrayList<Integer>, ArrayList<Integer>> jdEntry, ArrayList<Integer> closestJD,
-            ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> concurrentJDAvaHashMap, 
+            ConcurrentHashMap<ArrayList<Integer>, ArrayList<Integer>> concurrentJDAvaHashMap,
             int frequency, BufferedWriter pw, int tableNum) throws IOException {
         if (origianlReverseJointDegrees.get(this.mergedDegreeTitle.get(jdAvaEntry.getKey())).containsKey(closestJD) && origianlReverseJointDegrees.get(this.mergedDegreeTitle.get(jdAvaEntry.getKey())).get(closestJD).size() > 0) {
             int numberOfOriginalIDs = origianlReverseJointDegrees.get(this.mergedDegreeTitle.get(jdAvaEntry.getKey())).get(closestJD).size();
-            
+
             ArrayList<Integer> originalIDs = new ArrayList<>();
             for (int i : origianlReverseJointDegrees.get(this.mergedDegreeTitle.get(jdAvaEntry.getKey())).get(closestJD)) {
                 originalIDs.add(i);
             }
             Collections.shuffle(originalIDs);
-            
+
             for (int i = 0; i < frequency; i++) {
                 pw.write("" + jdEntry.getValue().get(i));
                 int pkidNum = originalIDs.get(i % numberOfOriginalIDs);
@@ -192,6 +190,15 @@ public class ParaReferencedOnlyTableGeneration implements Runnable {
             }
             concurrentJDAvaHashMap.remove(jdEntry.getKey());
         }
+    }
+
+    public void setInitials(String outPath, Map.Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry, HashMap<ArrayList<ComKey>, HashMap<ArrayList<Integer>, ArrayList<Integer>>> origianlReverseJointDegrees, HashMap<String, ArrayList<ComKey>> mergedDegreeTitle, DB originalDB, String delimiter) {
+        this.outPath = outPath;
+        this.jdAvaEntry = jdAvaEntry;
+        this.origianlReverseJointDegrees = origianlReverseJointDegrees;
+        this.mergedDegreeTitle = mergedDegreeTitle;
+        this.originalDB = originalDB;
+        this.delimiter = delimiter;
     }
 
 }

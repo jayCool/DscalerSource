@@ -21,7 +21,6 @@ import paraComputation.ParaRVCorr;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map.Entry;
@@ -131,8 +130,8 @@ public class Dscaler {
             HashMap<String, Boolean> uniqueNess,
             HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap,
             HashMap<String, ArrayList<ComKey>> referencingTableMap,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV
-     ,ArrayList<String> kvTables
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV, ArrayList<String> kvTables,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledRVMappedToOriginalRV
     ) {
 
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDistribution = new HashMap<>();
@@ -140,14 +139,20 @@ public class Dscaler {
         ArrayList<Thread> threadList = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalRVEntry : originalRVDis.entrySet()) {
             String curTable = originalRVEntry.getKey();
-            boolean kvTable = kvTables.contains(curTable);
+            //boolean kvTable = kvTables.contains(curTable);
+            int saveMapFlag = -1;
+            int tableID = originalDB.getTableID(curTable);
+            if (originalDB.getTableNonKeyString(tableID)[0] != null && !kvTables.contains(curTable)) {
+                saveMapFlag = 1;
+            } else if (kvTables.contains(curTable)) {
+                saveMapFlag = 0;
+            }
             ParaRVCorr paraRVCorr = new ParaRVCorr(jdSumMap, scaledRVDistribution, jointDegreeAvaStats, originalRVEntry.getValue(),
                     scaledJDDis, mergedDegreeTitle);
             ArrayList<HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMappingList
                     = calculateNorm1JointDegreeMap(curTable, referencingTableMap, mergedDegreeTitle);
-            paraRVCorr.setInitials(kvTable, originalCoDa, this.scaledTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable),
-                    curTable, referencingTableMap, norm1JointDegreeMappingList, uniqueNess, originalRVMappedScaledRV);
-            
+            paraRVCorr.setInitials(saveMapFlag, originalCoDa, this.scaledTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable),
+                    curTable, referencingTableMap, norm1JointDegreeMappingList, uniqueNess, originalRVMappedScaledRV, scaledRVMappedToOriginalRV);
 
             Thread thread = new Thread(paraRVCorr);
             threadList.add(thread);
@@ -199,40 +204,40 @@ public class Dscaler {
         calAvaStatsForJointDegree(jointDegreeAvaStats);
         HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jointDegreeSumMap = new HashMap<>();
         calculateJointDegreeSumMap(jointDegreeSumMap, jointDegreeAvaStats);
-        
+
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV = new HashMap<>();
-         ArrayList<String> kvTables = new ArrayList<>();
+        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledRVMappedtoOriginalRV = new HashMap<>();
+        HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV = new HashMap<>();
+
+        ArrayList<String> kvTables = new ArrayList<>();
         ArrayList<String> referencingOnlyTables = new ArrayList<>();
         ArrayList<String> referencedOnlyTables = new ArrayList<>();
 
         partitionTables(kvTables, referencingOnlyTables, referencedOnlyTables, jointDegreeAvaStats);
-        System.out.println("kvTables: " + kvTables);
-        
+
         System.err.println("======================RVC=====================");
         scaledCoda.rvDistribution = referencingVectorCorrelation(scaledCoda.jointDegreeDistribution, originalCoDa.rvDistribution,
                 originalDB.mergedDegreeTitle, jointDegreeAvaStats,
-                convertUniqueness(originalDB.tableType), jointDegreeSumMap, originalDB.fkRelation, originalRVMappedScaledRV,kvTables);
-
-       
+                convertUniqueness(originalDB.tableType), jointDegreeSumMap, originalDB.fkRelation, originalRVMappedScaledRV, kvTables, scaledRVMappedtoOriginalRV);
 
         System.out.println("======================Generate Referenced Only Tables=====================");
         generateReferencedOnlyTables(jointDegreeAvaStats, this.originalCoDa.reverseJointDegrees, referencedOnlyTables);
-        
+
         System.out.println("======================Synthesize Tuples For RV Related Tables=====================");
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKIDs = new HashMap<>(); //KEY IS THE DEGREE, VALUE ARE THOSE IDS WITH THE DEGREE
         int[][][] scaledRVFKIDs
                 = synthesizeRVRelatedTables(this.scaledCoda.rvDistribution, scaledRVPKIDs, jointDegreeAvaStats,
-                        this.originalCoDa.reverseRVs);
+                        this.originalCoDa.reverseRVs, scaledRVMappedtoOriginalRV);
 
         System.out.println("======================Synthesize KV IDs=====================");
         HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV = new HashMap<>();
-        HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap = mapJDIDTORVID(originalRVMappedScaledRV,scaledRVPKIDs, jointDegreeAvaStats, originalCoDa.kvDistribution,
+        HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap = mapJDIDTORVID(scaledKVMappedtoOriginalKV, originalRVMappedScaledRV, scaledRVPKIDs, jointDegreeAvaStats, originalCoDa.kvDistribution,
                 scaledReverseKV, kvTables);
 
         this.originalCoDa.dropKVDis();
         System.out.println("======================Generate KV Tables=====================");
         generateKVTables(scaledReverseKV,
-                this.originalCoDa.reverseKV, kvTables, scaledJDIDToRVIDMap, scaledRVFKIDs);
+                this.originalCoDa.reverseKV, kvTables, scaledJDIDToRVIDMap, scaledRVFKIDs, scaledKVMappedtoOriginalKV);
 
     }
 
@@ -286,14 +291,15 @@ public class Dscaler {
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseKV,
             ArrayList<String> kvTables,
             HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap,
-            int[][][] scaledRVFKIDs) {
+            int[][][] scaledRVFKIDs,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV
+    ) {
         ArrayList<Thread> threadList = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledKVIDentry : scaledReverseKV.entrySet()) {
-            System.err.println("kvT: " + scaledKVIDentry.getKey() + "\t" + kvTables);
             if (kvTables.contains(scaledKVIDentry.getKey())) {
-                System.err.println("kv table: " + scaledKVIDentry.getKey());
                 ParaKVTableGeneration kvTableGeneration = new ParaKVTableGeneration();
-                kvTableGeneration.setInitials(originalReverseKV, scaledKVIDentry, scaledJDIDToRVIDMap, scaledRVFKIDs, originalDB, outPath, delimiter);
+
+                kvTableGeneration.setInitials(scaledKVMappedtoOriginalKV, originalReverseKV, scaledKVIDentry, scaledJDIDToRVIDMap, scaledRVFKIDs, originalDB, outPath, delimiter);
                 Thread thread = new Thread(kvTableGeneration);
                 threadList.add(thread);
                 thread.start();
@@ -377,7 +383,8 @@ public class Dscaler {
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDistribution,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> rvPKIDs,
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledRVMappedtoOriginalRV
     ) {
         int[][][] rvFKIDs = new int[originalDB.getNumberOfTables()][][];
         ArrayList<Thread> threadList = new ArrayList<>();
@@ -385,7 +392,7 @@ public class Dscaler {
             if (!jointDegreeAvaStats.containsKey(scaledRVEntry.getKey())) {
                 ParaReferencingOnlyTableGeneration referencingOnlyTableGen = new ParaReferencingOnlyTableGeneration(
                         scaledRVEntry, jointDegreeAvaStats);
-                referencingOnlyTableGen.setInitials(originalReverseRVDistribution, scaledTableSize, outPath, originalDB, delimiter);
+                referencingOnlyTableGen.setInitials(scaledRVMappedtoOriginalRV, originalReverseRVDistribution, scaledTableSize, outPath, originalDB, delimiter);
 
                 Thread thread = new Thread(referencingOnlyTableGen);
                 thread.start();
@@ -411,6 +418,7 @@ public class Dscaler {
     }
 
     private HashMap<String, HashMap<Integer, Integer>> mapJDIDTORVID(
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKIDs,
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
@@ -420,10 +428,14 @@ public class Dscaler {
         HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap = new HashMap<>();
         ArrayList<Thread> threadList = new ArrayList<>();
         for (Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKentry : scaledRVPKIDs.entrySet()) {
-            if (keyTables.contains(scaledRVPKentry.getKey())) {
+            String curTable = scaledRVPKentry.getKey();
+            if (keyTables.contains(curTable)) {
+                int curTableID = originalDB.getTableID(curTable);
+                boolean saveMap = originalDB.getTableNonKeyString(curTableID)[0] != null;
+
                 ParaMapJDToRV paraMapJDToRV = new ParaMapJDToRV();
-                paraMapJDToRV.setInitials(scaledJDIDToRVIDMap, this.scaledTableSize.get(scaledRVPKentry.getKey()) * 1.0 / this.originalDB.tableSize.get(scaledRVPKentry.getKey()),
-                        jointDegreeAvaStats, scaledRVPKentry, scaledReverseKV, originalKVDistribution, originalRVMappedScaledRV.get(scaledRVPKentry.getKey()));
+                paraMapJDToRV.setInitials(saveMap, scaledKVMappedtoOriginalKV, scaledJDIDToRVIDMap, this.scaledTableSize.get(curTable) * 1.0 / this.originalDB.tableSize.get(curTable),
+                        jointDegreeAvaStats.get(curTable), scaledRVPKentry, scaledReverseKV, originalKVDistribution, originalRVMappedScaledRV.get(curTable), norm1JointDegreeMapping.get(originalDB.mergedDegreeTitle.get(curTable)));
 
                 Thread thread = new Thread(paraMapJDToRV);
                 threadList.add(thread);
@@ -455,12 +467,8 @@ public class Dscaler {
         for (Entry<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jdAvaEntry : jointDegreeAvaStats.entrySet()) {
             if (referencedOnlyTables.contains(jdAvaEntry.getKey())) {
                 ParaReferencedOnlyTableGeneration joinTableGen = new ParaReferencedOnlyTableGeneration();
-                joinTableGen.outPath = this.outPath;
-                joinTableGen.jdAvaEntry = jdAvaEntry;
-                joinTableGen.origianlReverseJointDegrees = origianlReverseJointDegrees;
-                joinTableGen.mergedDegreeTitle = this.originalDB.mergedDegreeTitle;
-                joinTableGen.originalDB = this.originalDB;
-                joinTableGen.delimiter = delimiter;
+                joinTableGen.setInitials(outPath, jdAvaEntry, origianlReverseJointDegrees, originalDB.mergedDegreeTitle, originalDB, delimiter);
+
                 Thread thread = new Thread(joinTableGen);
                 thread.start();
             }

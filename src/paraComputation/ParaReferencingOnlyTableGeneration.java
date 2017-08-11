@@ -35,7 +35,6 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
     public HashMap<String, ArrayList<ComKey>> mergedDegreeTitle;
     public HashMap<String, Integer> scaleTableSize;
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution;
-    HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap = new HashMap<>();
 
     public String outPath;
     public DB originalDB;
@@ -47,77 +46,57 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
 
     Random rand = new Random();
     int calRVSize = 0;
+    boolean saveRVMapFlag = false;
+    String currentTable = "";
 
-    
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVMappedtoOriginalRV;
+
     public ParaReferencingOnlyTableGeneration(
             Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVEntry,
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats) {
         this.scaledRVEntry = scaledRVEntry;
         this.jointDegreeAvaStats = jointDegreeAvaStats;
+        currentTable = scaledRVEntry.getKey();
     }
 
     @Override
     public void run() {
         try {
 
-            BufferedWriter pw = new BufferedWriter(new FileWriter(new File(outPath + "/" + scaledRVEntry.getKey() + ".txt")), 100000);
-            String curTable = scaledRVEntry.getKey();
-            int tableID = originalDB.getTableID(curTable);
-            groupRVsBasedOnSum(originalReverseRVDistribution.get(scaledRVEntry.getKey()).keySet());
+            BufferedWriter pw = new BufferedWriter(new FileWriter(new File(outPath + "/" + currentTable + ".txt")), 100000);
 
-            int printed = 0;
-            
-            switch (originalDB.getReferencingTables(curTable).size()) {
+            int tableID = originalDB.getTableID(currentTable);
+
+            switch (originalDB.getReferencingTables(currentTable).size()) {
 
                 case 1:
                     printTableForOneKey(tableID, pw);
                     break;
                 case 2:
-                    printed = printTableForTwoKeys(tableID, pw);
+                    printTableForTwoKeys(tableID, pw);
                     break;
                 default:
                     printTableForMoreKeys(tableID, pw);
                     break;
             }
 
-            //notEnoughPrinting(tableID, printed, pw, curTable);
-
             pw.close();
-            originalReverseRVDistribution.remove(curTable);
+            originalReverseRVDistribution.remove(currentTable);
         } catch (IOException ex) {
             Logger.getLogger(ParaReferencingOnlyTableGeneration.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
-    /**
-     * RVs are grouped based on the sum of the RV
-     * @param rvSets 
-     */
-    private void groupRVsBasedOnSum(Set<ArrayList<ArrayList<Integer>>> rvSets) {
 
-        for (ArrayList<ArrayList<Integer>> rv : rvSets) {
-            int sum = 0;
-            for (ArrayList<Integer> jd : rv) {
-                for (int degree : jd) {
-                    sum += degree;
-                }
-            }
-            if (!originalRVSumMap.containsKey(sum)) {
-                originalRVSumMap.put(sum, new ArrayList<ArrayList<ArrayList<Integer>>>());
-            }
-            originalRVSumMap.get(sum).add(rv);
-        }
-    }
-    
     /**
      * Output table with only one FK
+     *
      * @param tableID
      * @param pw
-     * @throws IOException 
+     * @throws IOException
      */
     private void printTableForOneKey(int tableID, BufferedWriter pw) throws IOException {
-
-        ComKey firstCK = referencingTable.get(scaledRVEntry.getKey()).get(0);
+        ArrayList<ArrayList<Integer>> closestRV = new ArrayList<>();
+        ComKey firstCK = referencingTable.get(currentTable).get(0);
         int firstCKIndex = this.mergedDegreeTitle.get(firstCK.sourceTable).indexOf(firstCK);
 
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
@@ -125,28 +104,31 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
             int frequency = scaledRVFrequency.getValue();
 
             int[] candidateIDs = jointDegreeAvaStats.get(firstCK.sourceTable).get(jointDegree).ids;
-            ArrayList<ArrayList<Integer>> closestRV = calculateClosestRV(scaledRVFrequency.getKey(), scaledRVEntry.getKey());
+            if (saveRVMapFlag) {
+                closestRV = calculateClosestRV(scaledRVFrequency.getKey(), currentTable);
+            }
 
             printSameAmountOfTuplesForCandidateIDs(tableID, frequency, candidateIDs, closestRV, pw);
             printRemainderOfTuplesForCandidateIDs(firstCK, firstCKIndex, tableID, frequency, candidateIDs, jointDegree, closestRV, pw);
         }
     }
-    
+
     /**
      * Output table with only two FKs
+     *
      * @param tableID
      * @param pw
      * @return number of tuples printed
-     * @throws IOException 
+     * @throws IOException
      */
     private int printTableForTwoKeys(int tableID, BufferedWriter pw) throws IOException {
-        ComKey firstCK = referencingTable.get(scaledRVEntry.getKey()).get(0);
-        ComKey secondCK = referencingTable.get(scaledRVEntry.getKey()).get(1);
+        ComKey firstCK = referencingTable.get(currentTable).get(0);
+        ComKey secondCK = referencingTable.get(currentTable).get(1);
         int firstCKIndex = this.mergedDegreeTitle.get(firstCK.getSourceTable()).indexOf(firstCK);
         int secondCKIndex = this.mergedDegreeTitle.get(secondCK.getSourceTable()).indexOf(secondCK);
 
         int printedNumber = 0;
-
+        ArrayList<ArrayList<Integer>> closestRV = new ArrayList<>();
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
 
             int frequency = scaledRVFrequency.getValue();
@@ -162,13 +144,14 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
 
             int secondCKIdsLength = this.jointDegreeAvaStats.get(secondCK.getSourceTable()).get(scaledRVFrequency.getKey().get(1)).ids.length;
             int secondCKStartingIndex = this.jointDegreeAvaStats.get(secondCK.getSourceTable()).get(scaledRVFrequency.getKey().get(1)).startIndex[secondCKIndex];
-
-            ArrayList<ArrayList<Integer>> closestRV = calculateClosestRV(scaledRVFrequency.getKey(), scaledRVEntry.getKey());
+            if (saveRVMapFlag) {
+                closestRV = calculateClosestRV(scaledRVFrequency.getKey(), currentTable);
+            }
 
             for (int firstCKIDIndex = 0; firstCKIDIndex < firstFKIDFrequencs.length; firstCKIDIndex++) {
                 for (int idFrequency = 0; idFrequency < firstFKIDFrequencs[firstCKIDIndex]; idFrequency++) {
-                    printTuple(tableID, jointDegreeAvaStats.get(firstCK.sourceTable).get(scaledRVFrequency.getKey().get(0)).ids[firstCKIDIndex] + delimiter +
-                            jointDegreeAvaStats.get(secondCK.sourceTable).get(scaledRVFrequency.getKey().get(1)).ids[secondCKStartingIndex], currentID, extractOriginalID(closestRV), pw);
+                    printTuple(tableID, jointDegreeAvaStats.get(firstCK.sourceTable).get(scaledRVFrequency.getKey().get(0)).ids[firstCKIDIndex] + delimiter
+                            + jointDegreeAvaStats.get(secondCK.sourceTable).get(scaledRVFrequency.getKey().get(1)).ids[secondCKStartingIndex], currentID, extractOriginalID(closestRV), pw);
                     secondCKStartingIndex++;
                     secondCKStartingIndex = secondCKStartingIndex % secondCKIdsLength;
                     currentID++;
@@ -179,17 +162,18 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         }
         return printedNumber;
     }
-    
-    
+
     /**
      * Output table with more than two FKs
+     *
      * @param tableID
      * @param pw
-     * @throws IOException 
+     * @throws IOException
      */
     private void printTableForMoreKeys(int tableID,
             BufferedWriter pw
     ) throws IOException {
+        ArrayList<ArrayList<Integer>> closestRV = new ArrayList<>();
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> scaledRVFrequency : scaledRVEntry.getValue().entrySet()) {
 
             String[][] fkIDs = new String[scaledRVFrequency.getKey().size()][scaledRVFrequency.getValue()];
@@ -198,16 +182,16 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
 
             for (int k = 0; k < scaledRVFrequency.getKey().size() && scaledRVFrequency.getValue() != 0; k++) {
                 ArrayList<Integer> jointDegree = scaledRVFrequency.getKey().get(k);
-                int[] idsWithJD = this.jointDegreeAvaStats.get(referencingTable.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).ids;
-                int startingIDindex = this.jointDegreeAvaStats.get(referencingTable.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]];
-                
+                int[] idsWithJD = this.jointDegreeAvaStats.get(referencingTable.get(currentTable).get(k).sourceTable).get(jointDegree).ids;
+                int startingIDindex = this.jointDegreeAvaStats.get(referencingTable.get(currentTable).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]];
+
                 for (int i = 0; i < frequency; i++) {
                     int jdID = idsWithJD[startingIDindex];
                     startingIDindex++;
                     startingIDindex = startingIDindex % idsWithJD.length;
                     fkIDs[k][i] = "" + jdID;
                 }
-                this.jointDegreeAvaStats.get(referencingTable.get(scaledRVEntry.getKey()).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]] = startingIDindex;
+                this.jointDegreeAvaStats.get(referencingTable.get(currentTable).get(k).sourceTable).get(jointDegree).startIndex[fkTableIndexes[k]] = startingIDindex;
             }
 
             String[] combinedFKs = fkIDs[0];
@@ -215,7 +199,9 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
                 combinedFKs = calculateCombinedFKs(combinedFKs, fkIDs[k]);
             }
 
-            ArrayList<ArrayList<Integer>> closestRV = calculateClosestRV(scaledRVFrequency.getKey(), scaledRVEntry.getKey());
+            if (saveRVMapFlag) {
+                closestRV = calculateClosestRV(scaledRVFrequency.getKey(), currentTable);
+            }
             for (int i = 0; i < combinedFKs.length; i++) {
                 int matchID = extractOriginalID(closestRV);
                 printTuple(tableID, combinedFKs[i], currentID, matchID, pw);
@@ -231,47 +217,11 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
      * @return ID in original table has closestRV
      */
     private int extractOriginalID(ArrayList<ArrayList<Integer>> closestRV) {
-        int candidateIndex = rand.nextInt(calRVSize);
-        return originalReverseRVDistribution.get(scaledRVEntry.getKey()).get(closestRV).get(candidateIndex);
-
-    }
-
-    /**
-     *
-     * @param rv
-     * @return closestRV
-     */
-    private ArrayList<ArrayList<Integer>> calculateClosestRVBasedOnSum(ArrayList<ArrayList<Integer>> rv) {
-        int sum = calculateSum(rv);
-        ArrayList<ArrayList<Integer>> result = new ArrayList<>();
-        for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (originalRVSumMap.containsKey(sum + i)) {
-                result = extractRVsBasedOnSum(sum + i);
-            }
-            if (result.isEmpty() && originalRVSumMap.containsKey(sum - i)) {
-                result = extractRVsBasedOnSum(sum - i);
-            }
-            if (!result.isEmpty()) {
-                return result;
-            }
+        if (saveRVMapFlag) {
+            int candidateIndex = rand.nextInt(calRVSize);
+            return originalReverseRVDistribution.get(currentTable).get(closestRV).get(candidateIndex);
         }
-        return null;
-    }
-    
-    
-    /**
-     * 
-     * @param rv
-     * @return sum of RV 
-     */
-    private int calculateSum(ArrayList<ArrayList<Integer>> rv) {
-        int sum = 0;
-        for (ArrayList<Integer> jointdegree : rv) {
-            for (int degree : jointdegree) {
-                sum += degree;
-            }
-        }
-        return sum;
+        return -1;
     }
 
     /**
@@ -285,57 +235,57 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
             calRVSize = originalReverseRVDistribution.get(curTable).get(rv).size();
             return rv;
         }
-
-        ArrayList<ArrayList<Integer>> closestRV = calculateClosestRVBasedOnSum(rv);
-
-        while (originalReverseRVDistribution.get(curTable).get(closestRV).isEmpty()) {
-            cleanRVForSumMap(curTable, closestRV);
-            closestRV = calculateClosestRVBasedOnSum(rv);
+        if (!scaledRVMappedtoOriginalRV.containsKey(rv)){
+            System.err.println("curTable: " + curTable);
+            System.err.println("scaledRVMappedtoOriginalRV" + scaledRVMappedtoOriginalRV);
+            System.err.println("rv: " + rv);
         }
-
+        int candidateSize = scaledRVMappedtoOriginalRV.get(rv).size();
+        ArrayList<ArrayList<Integer>> closestRV = scaledRVMappedtoOriginalRV.get(rv).get(rand.nextInt(candidateSize));
         calRVSize = originalReverseRVDistribution.get(curTable).get(closestRV).size();
         return closestRV;
     }
-    
-    
+
     /**
      * Print one tuple
+     *
      * @param tableID
      * @param fks
      * @param pkID
      * @param matchedOriginalPKID
      * @param pw
-     * @throws IOException 
+     * @throws IOException
      */
     private void printTuple(int tableID, String fks, int pkID, int matchedOriginalPKID, BufferedWriter pw) throws IOException {
         pw.write("" + pkID + delimiter + fks);
 
-        if (this.originalDB.tables[tableID].nonKeys[matchedOriginalPKID] != null) {
+        if (saveRVMapFlag && this.originalDB.tables[tableID].nonKeys[matchedOriginalPKID] != null) {
             pw.write(delimiter + this.originalDB.tables[tableID].nonKeys[matchedOriginalPKID]);
         }
 
         pw.newLine();
     }
-    
 
     /**
-     * For IDs with same RV, print the same amount of tuples 
+     * For IDs with same RV, print the same amount of tuples
+     *
      * @param tableID
      * @param frequency
      * @param candidateIDs
      * @param closestRV
      * @param pw
-     * @throws IOException 
-     */     
+     * @throws IOException
+     */
     private void printSameAmountOfTuplesForCandidateIDs(int tableID, int frequency, int[] candidateIDs, ArrayList<ArrayList<Integer>> closestRV, BufferedWriter pw) throws IOException {
         for (int i = 0; i < frequency / candidateIDs.length * candidateIDs.length; i++) {
-            printTuple(tableID, ""+candidateIDs[i % candidateIDs.length], currentID, extractOriginalID(closestRV), pw);
+            printTuple(tableID, "" + candidateIDs[i % candidateIDs.length], currentID, extractOriginalID(closestRV), pw);
             currentID++;
         }
     }
-    
+
     /**
      * Print the left over amount of tuples for the IDs with the same RV
+     *
      * @param firstCK
      * @param firstCKIndex
      * @param tableID
@@ -344,7 +294,7 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
      * @param jointDegree
      * @param closestRV
      * @param pw
-     * @throws IOException 
+     * @throws IOException
      */
     private void printRemainderOfTuplesForCandidateIDs(ComKey firstCK, int firstCKIndex, int tableID, int frequency,
             int[] candidateIDs, ArrayList<Integer> jointDegree, ArrayList<ArrayList<Integer>> closestRV, BufferedWriter pw) throws IOException {
@@ -352,7 +302,7 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         int firstCKStartingIndex = this.jointDegreeAvaStats.get(firstCK.getSourceTable()).get(jointDegree).startIndex[firstCKIndex];
 
         for (int i = frequency / candidateIDs.length * candidateIDs.length; i < frequency; i++) {
-            printTuple(tableID, ""+candidateIDs[firstCKStartingIndex], currentID, extractOriginalID(closestRV), pw);
+            printTuple(tableID, "" + candidateIDs[firstCKStartingIndex], currentID, extractOriginalID(closestRV), pw);
             firstCKStartingIndex++;
             firstCKStartingIndex = firstCKStartingIndex % candidateIDs.length;
             currentID++;
@@ -360,9 +310,10 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
 
         this.jointDegreeAvaStats.get(firstCK.getSourceTable()).get(jointDegree).startIndex[firstCKIndex] = firstCKStartingIndex;
     }
-    
+
     /**
      * Calculate the FK appearing frequencies
+     *
      * @param frequency
      * @param firstCKIdsLength
      * @param firstFKIDFrequencs
@@ -383,13 +334,13 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         }
         return firstCKStartingIndex;
     }
-    
-    
+
     /**
      * Combine the FKs to one string
+     *
      * @param combinedKeys
      * @param fkID
-     * @return 
+     * @return
      */
     private String[] calculateCombinedFKs(String[] combinedKeys, String[] fkID) {
         Arrays.sort(combinedKeys);
@@ -398,7 +349,6 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         }
         return combinedKeys;
     }
-
 
     private void notEnoughPrinting(int tableID, int printed, BufferedWriter pw, String curTable) throws IOException {
         int[] scaledSourceTableSize = calculateScaledTableSize(curTable);
@@ -434,14 +384,16 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
     }
 
     /**
-     * 
+     *
      * @param originalReverseRVDistribution
      * @param scaleTableSize
      * @param outPath
      * @param originalDB
-     * @param delimiter 
+     * @param delimiter
      */
-    public void setInitials(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution, HashMap<String, Integer> scaleTableSize, String outPath, DB originalDB, String delimiter) {
+    public void setInitials(HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledRVMappedtoOriginalRV,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> originalReverseRVDistribution, HashMap<String, Integer> scaleTableSize, String outPath, DB originalDB, String delimiter) {
+        this.scaledRVMappedtoOriginalRV = scaledRVMappedtoOriginalRV.get(currentTable);
         mergedDegreeTitle = originalDB.mergedDegreeTitle;
         this.originalReverseRVDistribution = originalReverseRVDistribution;
         this.scaleTableSize = scaleTableSize;
@@ -449,12 +401,17 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         this.originalDB = originalDB;
         this.referencingTable = originalDB.fkRelation;
         this.delimiter = delimiter;
+
+        int tableID = originalDB.getTableID(currentTable);
+        saveRVMapFlag = originalDB.getTableNonKeyString(tableID)[0] != null;
+
     }
-    
+
     /**
      * Calculate CK appearing index
+     *
      * @param tableID
-     * @return 
+     * @return
      */
     private int[] calculateFKIndexOfJD(int tableID) {
         String curTable = originalDB.getTableName(tableID);
@@ -466,10 +423,9 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
         }
         return fkIndexOfJD;
     }
-    
-    
+
     /**
-     * 
+     *
      * @param curTable
      * @return size of the scaled tables
      */
@@ -482,37 +438,6 @@ public class ParaReferencingOnlyTableGeneration implements Runnable {
             }
         }
         return scaledSourceTableSize;
-    }
-
-    /**
-     *
-     * @param sum
-     * @return closestRV having the sum
-     */
-    private ArrayList<ArrayList<Integer>> extractRVsBasedOnSum(int sum) {
-        int size = originalRVSumMap.get(sum).size();
-        if (size == 0) {
-            originalRVSumMap.remove(sum);
-        } else {
-            int candidateIndex = rand.nextInt(size);
-            return originalRVSumMap.get(sum).get(candidateIndex);
-        }
-        return new ArrayList<>();
-    }
-    
-    /**
-     * Cleaning job
-     * @param curTable
-     * @param closestRV 
-     */
-    private void cleanRVForSumMap(String curTable, ArrayList<ArrayList<Integer>> closestRV) {
-        originalReverseRVDistribution.get(curTable).remove(closestRV);
-        int rvDegreeSum = calculateSum(closestRV);
-        originalRVSumMap.get(rvDegreeSum).remove(closestRV);
-
-        if (originalRVSumMap.get(rvDegreeSum).isEmpty()) {
-            originalRVSumMap.remove(rvDegreeSum);
-        }
     }
 
 }

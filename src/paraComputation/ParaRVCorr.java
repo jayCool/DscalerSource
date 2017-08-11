@@ -1,6 +1,5 @@
 package paraComputation;
 
-import com.sun.corba.se.impl.io.ValueHandlerImpl;
 import db.structs.ComKey;
 import dataStructure.CoDa;
 
@@ -8,7 +7,6 @@ import main.Sort;
 import dataStructure.AvaliableStatistics;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,7 +34,9 @@ public class ParaRVCorr implements Runnable {
     HashMap<ArrayList<ArrayList<Integer>>, Integer> previouslyCalculatedBound = new HashMap<>();
     boolean terminated = false;
     public double sRatio;
-
+    
+    
+    int[][] sumValues;
     public String curTable;
     public HashMap<String, ArrayList<ComKey>> referencingComKeyMap;
     int budget = 0;
@@ -54,9 +54,10 @@ public class ParaRVCorr implements Runnable {
     int debugTotal = 0;
     ArrayList<HashMap<Integer, ArrayList<ArrayList<Integer>>>> originalJDSumMapping = new ArrayList<>();
     ArrayList<Integer>[] currentlyUsingOriginalJDs;
-    boolean kvTable = false;
-    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> norm1RVMapping = new HashMap<>();
-
+    int saveMapFlag = -1; // -1:no storing, 0: store original to scaled, 1: store scaled to original
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedToScaledRV = new HashMap<>();
+ HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVMappedToOriginalRV = new HashMap<>();
+ 
     public ParaRVCorr(HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDisMap,
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
@@ -68,10 +69,48 @@ public class ParaRVCorr implements Runnable {
         this.mergedDegreeTitle = mergedDegreeTitle;
         this.scaledRVDisMap = scaledRVDisMap;
     }
+    
+    
+    /**
+     * Initialize the parameters
+     *
+     * @param originalCoDa
+     * @param sRatio
+     * @param curTable
+     * @param referencingTableMap
+     * @param norm1JointDegreeMappingList
+     * @param uniqueNess
+     * @param originalRVMappedScaledRV
+     * @param scaledRVMappedToOriginalRV
+     */
+    public void setInitials(int saveMapFlag, CoDa originalCoDa, double sRatio, String curTable,
+            HashMap<String, ArrayList<ComKey>> referencingTableMap,
+            ArrayList<HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMappingList,
+            HashMap<String, Boolean> uniqueNess,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV,
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledRVMappedToOriginalRV
+    ) {
+        this.originalCoDa = originalCoDa;
+        this.sRatio = sRatio;
+        this.curTable = curTable;
+        this.referencingComKeyMap = referencingTableMap;
+        this.norm1JointDegreeMappingList = norm1JointDegreeMappingList;
+        this.uniqueNess = uniqueNess;
+        if (saveMapFlag==0) {
+            originalRVMappedScaledRV.put(curTable, originalRVMappedToScaledRV);
+        } 
+        if (saveMapFlag == 1){
+            scaledRVMappedToOriginalRV.put(curTable, this.scaledRVMappedToOriginalRV);
+        }
+        this.saveMapFlag = saveMapFlag;
+        
+
+    }
 
     @Override
     public void run() {
-        currentlyUsingOriginalJDs = new ArrayList[this.referencingComKeyMap.get(curTable).size()];
+        calculateOriginalSumMaps();
+
         calculateJDAvaIndexes();
 
         scaledRVDisMap.put(this.curTable, rvCorrelation());
@@ -134,7 +173,6 @@ public class ParaRVCorr implements Runnable {
             pair1.add(rv.get(i));
             pair2.add(originalRV.getKey().get(i));
         }
-        return;
     }
 
     /**
@@ -188,12 +226,22 @@ public class ParaRVCorr implements Runnable {
         concurrentScaledRVDis.put(pair1, legalIncrementalFrequency + concurrentScaledRVDis.get(pair1));
         concurrentScaledRVDis.put(pair2, legalIncrementalFrequency + concurrentScaledRVDis.get(pair2));
         ArrayList<ArrayList<Integer>> randomizedRV = rvList.get(rand.nextInt(rvList.size()));
-        if (kvTable) {
-            updateRVNormMap(randomizedRV, pair1);
+        if (saveMapFlag==0) {
+            updateRVNormMap(randomizedRV, pair1, originalRVMappedToScaledRV);
         }
-        if (kvTable) {
-            updateRVNormMap(randomizedRV, pair2);
+        if (saveMapFlag==1){
+            updateRVNormMap(pair1, randomizedRV, scaledRVMappedToOriginalRV);
         }
+        
+        if (saveMapFlag==0) {
+            updateRVNormMap(randomizedRV, pair2,originalRVMappedToScaledRV);
+        }
+        
+        if (saveMapFlag==1){
+            updateRVNormMap(pair2, randomizedRV, scaledRVMappedToOriginalRV);
+        }
+        
+        
 
         incrementalFrequency = incrementalFrequency - legalIncrementalFrequency;
         updateStatisticsForRandom(rv, legalIncrementalFrequency);
@@ -254,7 +302,6 @@ public class ParaRVCorr implements Runnable {
             currentlyUsingOriginalJDs[i] = originalRV.get(i);
         }
         synthesizeRV(originalRV, incrementalFrequency, currentlyUsingOriginalJDs, scaledRVDistribution, originalRV);
-        return;
     }
 
     /**
@@ -297,7 +344,6 @@ public class ParaRVCorr implements Runnable {
                 incrementalFrequency = budget;
             }
         }
-        return;
     }
 
     /**
@@ -343,8 +389,11 @@ public class ParaRVCorr implements Runnable {
         }
 
         debugTotal += incrementalFrequency;
-        if (this.kvTable) {
-            updateRVNormMap(originalRV, calculatedRV);
+        if (this.saveMapFlag==0) {
+            updateRVNormMap(originalRV, calculatedRV, originalRVMappedToScaledRV);
+        }
+        if (this.saveMapFlag == 1){
+            updateRVNormMap(calculatedRV, originalRV, scaledRVMappedToOriginalRV);
         }
 
         scaledRVDistribution.put(calculatedRV, incrementalFrequency + oldFrequency);
@@ -436,7 +485,7 @@ public class ParaRVCorr implements Runnable {
         incrementalFrequency = (int) Math.min(incrementalFrequency, uniquenessBound - oldFrequency);
         concurrentScaledRVDis.put(rv, oldFrequency + incrementalFrequency);
 
-        if (concurrentScaledRVDis.get(rv) == this.previouslyCalculatedBound.get(rv)) {
+        if (concurrentScaledRVDis.get(rv).equals(this.previouslyCalculatedBound.get(rv))) {
             this.previouslyCalculatedBound.remove(rv);
             overBoundedRVs.add(rv);
         }
@@ -548,7 +597,7 @@ public class ParaRVCorr implements Runnable {
                     //clean the hashmaps
                     if (norm1JointDegreeMappingList.get(i).containsKey(currentlyUsingOriginalJDs[i])) {
                         norm1JointDegreeMappingList.get(i).get(currentlyUsingOriginalJDs[i]).remove(rvSet.get(i).get(ind));
-                        if (norm1JointDegreeMappingList.get(i).get(currentlyUsingOriginalJDs[i]).size() == 0) {
+                        if (norm1JointDegreeMappingList.get(i).get(currentlyUsingOriginalJDs[i]).isEmpty()) {
                             norm1JointDegreeMappingList.get(i).remove(currentlyUsingOriginalJDs[i]);
                         }
                     }
@@ -650,8 +699,11 @@ public class ParaRVCorr implements Runnable {
     private void updateStatisticsForRandom(ArrayList<ArrayList<Integer>> rv, int incrementalFrequency) {
 
         ArrayList<ArrayList<Integer>> randomizedRV = rvList.get(rand.nextInt(rvList.size()));
-        if (kvTable) {
-            updateRVNormMap(randomizedRV, rv);
+        if (saveMapFlag==0) {
+            updateRVNormMap(randomizedRV, rv, originalRVMappedToScaledRV);
+        }
+        if (saveMapFlag == 1){
+            updateRVNormMap(rv, randomizedRV, scaledRVMappedToOriginalRV);
         }
         for (int i = 0; i < rv.size(); i++) {
             String srcTable = referencedTables.get(i);
@@ -681,7 +733,6 @@ public class ParaRVCorr implements Runnable {
             jointDegreeIndexs.add(0);
         }
 
-        int randomeTotal = 0;
         while (checkIndexesOverflow(jointDegreeIndexs, availableJointDegrees)) {
             int incrementalFrequency = calculateAvailableFrequency(jointDegreeIndexs, availableJointDegrees);
 
@@ -696,7 +747,6 @@ public class ParaRVCorr implements Runnable {
             ArrayList<ArrayList<Integer>> rv = extractRV(jointDegreeIndexs, availableJointDegrees);
 
             incrementalFrequency = synthesizeNewRV(incrementalFrequency, rv, concurrentScaledRVDis, uniquenessBound);
-            randomeTotal += incrementalFrequency;
             updateStatisticsForRandom(rv, incrementalFrequency);
 
             if (incrementJointDegreeIndexes(jointDegreeIndexs, jointDegreeIndexs.size() - 1, availableJointDegrees) < 0) {
@@ -740,7 +790,7 @@ public class ParaRVCorr implements Runnable {
             ArrayList<ArrayList<Integer>> rv = extractRV(jointDegreeIndexs, availableJointDegrees);
 
             for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalRV : concurrentScaledRVDis.entrySet()) {
-                if (originalRV.getValue() == 0 || originalRV.getKey().size() == 0) {
+                if (originalRV.getValue() == 0 || originalRV.getKey().isEmpty()) {
                     continue;
                 }
 
@@ -865,57 +915,7 @@ public class ParaRVCorr implements Runnable {
         return result;
     }
 
-    /**
-     * Initialize the parameters
-     *
-     * @param originalCoDa
-     * @param sRatio
-     * @param curTable
-     * @param referencingTableMap
-     * @param norm1JointDegreeMappingList
-     * @param uniqueNess
-     */
-    public void setInitials(boolean kvTable, CoDa originalCoDa, double sRatio, String curTable,
-            HashMap<String, ArrayList<ComKey>> referencingTableMap,
-            ArrayList<HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMappingList,
-            HashMap<String, Boolean> uniqueNess,
-            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> originalRVMappedScaledRV
-    ) {
-        this.originalCoDa = originalCoDa;
-        this.sRatio = sRatio;
-        this.curTable = curTable;
-        this.referencingComKeyMap = referencingTableMap;
-        this.norm1JointDegreeMappingList = norm1JointDegreeMappingList;
-        this.uniqueNess = uniqueNess;
-        if (kvTable) {
-            originalRVMappedScaledRV.put(curTable, norm1RVMapping);
-        }
-        this.kvTable = kvTable;
-        sumValues = new int[referencingComKeyMap.get(curTable).size()][];
-        removedValues = new HashSet[sumValues.length];
-        for (int index = 0; index < sumValues.length; index++) {
-            HashMap<Integer, ArrayList<ArrayList<Integer>>> sumMap = new HashMap<>();
-            for (ArrayList<Integer> jd : norm1JointDegreeMappingList.get(index).keySet()) {
-                int sum = calculateDegreeSum(jd);
-                if (!sumMap.containsKey(sum)) {
-                    sumMap.put(sum, new ArrayList<ArrayList<Integer>>());
-                }
-                sumMap.get(sum).add(jd);
-            }
-            sumValues[index] = new int[sumMap.keySet().size()];
-            removedValues[index] = new HashSet<>();
-            int count = 0;
-            for (int sumV : sumMap.keySet()) {
-                sumValues[index][count] = sumV;
-                count++;
-            }
-            Arrays.sort(sumValues[index]);
 
-            originalJDSumMapping.add(sumMap);
-        }
-    }
-
-    int[][] sumValues;
 
     /**
      * Preparation Work: Calculate the indexes for each referenced JD.
@@ -1102,7 +1102,7 @@ public class ParaRVCorr implements Runnable {
     private void cleanNorm1MapEmptyEntries(int index, ArrayList<HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>>> norm1JointDegreeMapping) {
         ArrayList<ArrayList<Integer>> removedLists = new ArrayList<>();
         for (ArrayList<Integer> candidateJD : norm1JointDegreeMapping.get(index).keySet()) {
-            if (norm1JointDegreeMapping.get(index).get(candidateJD).size() == 0) {
+            if (norm1JointDegreeMapping.get(index).get(candidateJD).isEmpty()) {
                 removedLists.add(candidateJD);
             }
         }
@@ -1115,7 +1115,7 @@ public class ParaRVCorr implements Runnable {
     private void cleanOriginalJDSumMapping(ArrayList<HashMap<Integer, ArrayList<ArrayList<Integer>>>> originalJDSumMapping, int index) {
         ArrayList<Integer> removed = new ArrayList<>();
         for (int i : originalJDSumMapping.get(index).keySet()) {
-            if (originalJDSumMapping.get(index).get(i).size() == 0) {
+            if (originalJDSumMapping.get(index).get(i).isEmpty()) {
                 removed.add(i);
             }
         }
@@ -1125,7 +1125,7 @@ public class ParaRVCorr implements Runnable {
 
     }
 
-    private void updateRVNormMap(ArrayList<ArrayList<Integer>> originalRV, ArrayList<ArrayList<Integer>> calculatedRV) {
+    private void updateRVNormMap(ArrayList<ArrayList<Integer>> originalRV, ArrayList<ArrayList<Integer>> calculatedRV, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> norm1RVMapping) {
         if (!norm1RVMapping.containsKey(originalRV)) {
             norm1RVMapping.put(originalRV, new ArrayList<ArrayList<ArrayList<Integer>>>());
         }
@@ -1154,7 +1154,6 @@ public class ParaRVCorr implements Runnable {
                 }
             }
             sumValues[index] = tempValues;
-            Arrays.sort(sumValues[index]);
             removedValues[index].clear();
             cleanNorm1MapEmptyEntries(index, norm1JointDegreeMappingList);
             cleanOriginalJDSumMapping(originalJDSumMapping, index);
@@ -1191,7 +1190,7 @@ public class ParaRVCorr implements Runnable {
                 }
 
                 int newSum = sumValues[index][newMatchingIndex];
-                if (originalJDSumMapping.get(index).containsKey(newSum) && originalJDSumMapping.get(index).get(newSum).size() == 0) {
+                if (originalJDSumMapping.get(index).containsKey(newSum) && originalJDSumMapping.get(index).get(newSum).isEmpty()) {
                     originalJDSumMapping.get(index).remove(newSum);
                     removedValues[index].add(newSum);
                 } else if (originalJDSumMapping.get(index).containsKey(newSum)) {
@@ -1200,11 +1199,38 @@ public class ParaRVCorr implements Runnable {
                         return originalJDSumMapping.get(index).get(newSum).get(minIndex);
                     } else {
                         originalJDSumMapping.get(index).remove(newSum);
+                        removedValues[index].add(newSum);
                     }
                 }
             }
         }
         return new ArrayList<Integer>();
+    }
+
+    private void calculateOriginalSumMaps() {
+        sumValues = new int[referencingComKeyMap.get(curTable).size()][];
+        removedValues = new HashSet[sumValues.length];
+        for (int index = 0; index < sumValues.length; index++) {
+            HashMap<Integer, ArrayList<ArrayList<Integer>>> sumMap = new HashMap<>();
+            for (ArrayList<Integer> jd : norm1JointDegreeMappingList.get(index).keySet()) {
+                int sum = calculateDegreeSum(jd);
+                if (!sumMap.containsKey(sum)) {
+                    sumMap.put(sum, new ArrayList<ArrayList<Integer>>());
+                }
+                sumMap.get(sum).add(jd);
+            }
+            sumValues[index] = new int[sumMap.keySet().size()];
+            removedValues[index] = new HashSet<>();
+            int count = 0;
+            for (int sumV : sumMap.keySet()) {
+                sumValues[index][count] = sumV;
+                count++;
+            }
+            Arrays.sort(sumValues[index]);
+            originalJDSumMapping.add(sumMap);
+        }
+
+        currentlyUsingOriginalJDs = new ArrayList[this.referencingComKeyMap.get(curTable).size()];
     }
 
 }

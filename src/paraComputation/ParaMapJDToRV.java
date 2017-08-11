@@ -7,8 +7,11 @@ package paraComputation;
 
 import dataStructure.AvaliableStatistics;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -18,76 +21,68 @@ import java.util.Set;
 public class ParaMapJDToRV implements Runnable {
 
     public HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap;
-    public HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats;
+    public HashMap<ArrayList<Integer>, AvaliableStatistics> jointDegreeAvaStats;
     public Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKentry;
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalKVDistribution;
 
     public double sRatio;
     public HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV;
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV = new HashMap<>();
 
+    int[] rvSumValues;
+    HashSet<Integer> removedRVSumValues;
+    HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap = new HashMap<>();
+    HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> originalJDMappedToScaledJD;
+    ArrayList<ArrayList<Integer>> currentlyUsingOriginalRV = new ArrayList<>();
+    ArrayList<Integer> currentlyUsingOriginalJD = new ArrayList<>();
+    String curTable;
+    boolean saveMap;
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> scaledKVMappedtoOriginalKV = new HashMap<>();
+    
     @Override
     public void run() {
-        String table = scaledRVPKentry.getKey();
+        calculateOriginalSumMap();
+       
         HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable = new HashMap<>();
-        HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap = calculateRVSumMap(scaledRVPKentry.getValue().keySet());
-        HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap = calculateJDSumMap(jointDegreeAvaStats.get(table).keySet());
 
         HashMap<Integer, Integer> mapJDToRV = new HashMap<>();
         HashMap<ArrayList<ArrayList<Integer>>, Integer> rvIDStartingIndex = new HashMap<>();
         HashMap<ArrayList<Integer>, Integer> jdIDStartingIndex = new HashMap<>();
-
-        while (!scaledRVSumMap.isEmpty() && !scaledJDSumMap.isEmpty()) {
-            for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry : originalKVDistribution.get(table).entrySet()) {
-                if (scaledRVSumMap.isEmpty() || scaledJDSumMap.isEmpty()) {
+    
+        while (!originalRVSumMap.isEmpty() && !originalJDSumMap.isEmpty()) {
+            for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry : originalKVDistribution.get(curTable).entrySet()) {
+                if (originalRVSumMap.isEmpty() || originalJDSumMap.isEmpty()) {
                     break;
                 }
                 int expectedFrequency = calculateExpectedFrequency(originalKVentry.getValue());
                 ArrayList<ArrayList<Integer>> originalRV = extractOriginalRV(originalKVentry);
                 ArrayList<Integer> originalJD = originalKVentry.getKey().get(0);
+               
+                while (expectedFrequency > 0 && !originalRVSumMap.isEmpty() && !originalJDSumMap.isEmpty()) {
 
-                while (expectedFrequency > 0 && !scaledRVSumMap.isEmpty() && !scaledJDSumMap.isEmpty()) {
-                    ArrayList<ArrayList<Integer>> scaledClosestRV = calculateClosestRV(scaledRVSumMap, originalRV);
-                    ArrayList<Integer> scaledClosestJD = calculateClosestJD(table, originalJD, scaledJDSumMap);
+                    ArrayList<ArrayList<Integer>> scaledClosestRV = calculateClosestRV(originalRVSumMap, originalRV);
+                    ArrayList<Integer> scaledClosestJD = calculateClosestJD(originalJD, originalJDSumMap);
+                    if (scaledClosestJD.isEmpty()) {
+                        break;
+                    }
+                    if (scaledClosestRV.isEmpty()) {
+                        break;
+                    }
                     boolean matched = false;
                     if (originalJD.equals(scaledClosestJD) && originalRV.equals(scaledClosestRV)) {
                         matched = true;
                     }
-                    expectedFrequency = synthesizeOneKV(matched, originalKVentry, scaledRVSumMap, scaledJDSumMap, expectedFrequency, scaledClosestJD,
-                            scaledClosestRV, table, rvIDStartingIndex, jdIDStartingIndex, mapJDToRV, kvToIDsWithoutTable);
 
+                    expectedFrequency = synthesizeOneKV(matched, originalKVentry, originalRVSumMap, originalJDSumMap, expectedFrequency, scaledClosestJD,
+                            scaledClosestRV, curTable, rvIDStartingIndex, jdIDStartingIndex, mapJDToRV, kvToIDsWithoutTable);
+                
                 }
 
             }
         }
-
-        scaledReverseKV.put(table, kvToIDsWithoutTable);
-        scaledJDIDToRVIDMap.put(table, mapJDToRV);
-    }
-
-    /**
-     * Randomly returns the RV with the closest key sum
-     *
-     * @param scaledRVSumMap
-     * @param originalRV
-     * @return closestRVWithKeySum
-     */
-    private ArrayList<ArrayList<Integer>> calculateRVFromClosestKeySum(HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap,
-            ArrayList<ArrayList<Integer>> originalRV) {
-        int originalRVSum = calculateRVSum(originalRV);
-
-        for (int i = 0; i < Integer.MAX_VALUE; i++) {
-            if (scaledRVSumMap.containsKey(i + originalRVSum) && !scaledRVSumMap.get(i + originalRVSum).isEmpty()) {
-                int rvKeySum = i + originalRVSum;
-                return scaledRVSumMap.get(rvKeySum).get(0);
-            }
-            if (scaledRVSumMap.containsKey(-i + originalRVSum) && !scaledRVSumMap.get(-i + originalRVSum).isEmpty()) {
-                int rvKeySum = -i + originalRVSum;
-                return scaledRVSumMap.get(rvKeySum).get(0);
-            }
-
-        }
-        System.out.println("error in finding RV");
-        return null;
+        
+        scaledReverseKV.put(curTable, kvToIDsWithoutTable);
+        scaledJDIDToRVIDMap.put(curTable, mapJDToRV);
     }
 
     /**
@@ -139,24 +134,6 @@ public class ParaMapJDToRV implements Runnable {
 
     /**
      *
-     * @param rvSet
-     * @return rvSumMap
-     */
-    private HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> calculateRVSumMap(Set<ArrayList<ArrayList<Integer>>> rvSet) {
-        HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> rvSumMap = new HashMap<>();
-        for (ArrayList<ArrayList<Integer>> rv : rvSet) {
-            int rvSum = calculateRVSum(rv);
-
-            if (!rvSumMap.containsKey(Math.abs(rvSum))) {
-                rvSumMap.put(Math.abs(rvSum), new ArrayList<ArrayList<ArrayList<Integer>>>());
-            }
-            rvSumMap.get(Math.abs(rvSum)).add(rv);
-        }
-        return rvSumMap;
-    }
-
-    /**
-     *
      * @param jointDegree
      * @return sum of the degrees for one JD
      */
@@ -176,9 +153,7 @@ public class ParaMapJDToRV implements Runnable {
     private int calculateRVSum(ArrayList<ArrayList<Integer>> rv) {
         int rvSum = 0;
         for (ArrayList<Integer> jointDegree : rv) {
-            for (int degree : jointDegree) {
-                rvSum += degree;
-            }
+            rvSum += calculateJDSum(jointDegree);
         }
         return rvSum;
     }
@@ -190,40 +165,87 @@ public class ParaMapJDToRV implements Runnable {
      * @param scaledJDSumMap
      * @return scaledClosestJD
      */
-    private ArrayList<Integer> calculateClosestJD(String table, ArrayList<Integer> originalJD,
-            HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap) {
-
+    private ArrayList<Integer> calculateClosestJD(ArrayList<Integer> originalJD, HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap) {
         ArrayList<Integer> scaledClosestJD = new ArrayList<>();
-        if (jointDegreeAvaStats.get(table).keySet().contains(originalJD)) {
-            scaledClosestJD = originalJD;
-            int jdKeySum = calculateJDSum(scaledClosestJD);
 
-            if (!scaledJDSumMap.containsKey(jdKeySum) || !scaledJDSumMap.get(jdKeySum).contains(scaledClosestJD)) {
-                scaledClosestJD = calculateJDFromClosestKeySum(scaledJDSumMap, originalJD);
+        cleanRemovedJDSums();
+        if (jointDegreeAvaStats.containsKey(originalJD)) {
+            int jdSum = calculateJDSum(originalJD);
+            if (originalJDSumMap.containsKey(jdSum) && originalJDSumMap.get(jdSum).contains(scaledClosestJD)
+                    && originalJDMappedToScaledJD.containsKey(originalJD) && originalJDMappedToScaledJD.get(originalJD).contains(originalJD)) {
+                scaledClosestJD = originalJD;
+                currentlyUsingOriginalJD = originalJD;
+            } else {
+                return calculateClosestOriginalJDAndScaledJD(originalJD, originalJDMappedToScaledJD);
             }
         } else {
-            scaledClosestJD = calculateJDFromClosestKeySum(scaledJDSumMap, originalJD);
+            return calculateClosestOriginalJDAndScaledJD(originalJD, originalJDMappedToScaledJD);
         }
+
         return scaledClosestJD;
+
+    }
+
+    private void cleanRemovedRVSums() {
+        if (removedRVSumValues.size() > 0.1 * rvSumValues.length) {
+            int[] tempValues = new int[rvSumValues.length - removedRVSumValues.size()];
+            int count = 0;
+            for (int i : rvSumValues) {
+                if (!removedRVSumValues.contains(i)) {
+                    tempValues[count] = i;
+                    count++;
+                }
+            }
+            rvSumValues = tempValues;
+            removedRVSumValues.clear();
+            cleanRVMapping(originalRVMappedScaledRV);
+            cleanOriginalRVSumMapping(originalRVSumMap);
+        }
+    }
+
+    private void cleanRemovedJDSums() {
+        if (removedJDSumValues.size() > 0.1 * jdSumValues.length) {
+            int[] tempValues = new int[jdSumValues.length - removedJDSumValues.size()];
+            int count = 0;
+            for (int i : jdSumValues) {
+                if (!removedJDSumValues.contains(i)) {
+                    tempValues[count] = i;
+                    count++;
+                }
+            }
+            jdSumValues = tempValues;
+            removedJDSumValues.clear();
+            cleanJDMapping(originalJDMappedToScaledJD);
+            cleanOriginalJDSumMapping(originalJDSumMap);
+        }
     }
 
     /**
      *
-     * @param scaledRVSumMap
+     * originalRVSumMap scaledRVSumMap
+     *
      * @param originalRV
      * @return scaledClosestRV
      */
-    private ArrayList<ArrayList<Integer>> calculateClosestRV(HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap,
+    private ArrayList<ArrayList<Integer>> calculateClosestRV(HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap,
             ArrayList<ArrayList<Integer>> originalRV) {
         ArrayList<ArrayList<Integer>> scaledClosestRV = new ArrayList<>();
-        if (scaledRVPKentry.getValue().keySet().contains(originalRV)) {
-            scaledClosestRV = originalRV;
+
+        cleanRemovedRVSums();
+
+        if (scaledRVPKentry.getValue().containsKey(originalRV)) {
             int rvKeySum = calculateRVSum(scaledClosestRV);
-            if (!scaledRVSumMap.containsKey(rvKeySum) || !scaledRVSumMap.get(rvKeySum).contains(scaledClosestRV)) {
-                scaledClosestRV = calculateRVFromClosestKeySum(scaledRVSumMap, originalRV);
+
+            if (originalRVSumMap.containsKey(rvKeySum) && originalRVSumMap.get(rvKeySum).contains(scaledClosestRV)
+                    && originalRVMappedScaledRV.containsKey(originalRV) && originalRVMappedScaledRV.get(originalRV).contains(originalRV)) {
+                scaledClosestRV = originalRV;
+                currentlyUsingOriginalRV = originalRV;
+            } else {
+                return calculateClosestOriginalAndScaledRV(originalRV, originalRVMappedScaledRV);
+
             }
         } else {
-            scaledClosestRV = calculateRVFromClosestKeySum(scaledRVSumMap, originalRV);
+            return calculateClosestOriginalAndScaledRV(originalRV, originalRVMappedScaledRV);
         }
         return scaledClosestRV;
 
@@ -246,7 +268,7 @@ public class ParaMapJDToRV implements Runnable {
      * Extract the original RV from KV Entry
      *
      * @param originalKVentry
-     * @return originalRV
+     * @return currentlyUsingOriginalRV
      */
     private ArrayList<ArrayList<Integer>> extractOriginalRV(Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry) {
         ArrayList<ArrayList<Integer>> originalRV = new ArrayList<>();
@@ -256,18 +278,26 @@ public class ParaMapJDToRV implements Runnable {
         return originalRV;
     }
 
-    public void setInitials(HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap, double sRatio,
-            HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
+    public void setInitials(boolean saveMap, HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV, 
+            HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap, double sRatio,
+            HashMap<ArrayList<Integer>, AvaliableStatistics> jointDegreeAvaStats,
             Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKentry,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledReverseKV,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> originalKVDistribution,
-            HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV) {
+            HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV,
+            HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> originalJDMappedToScaledJD
+    ) {
+         curTable = scaledRVPKentry.getKey();
+        this.saveMap = saveMap;
+        scaledKVMappedtoOriginalKV.put(curTable, this.originalRVMappedScaledRV);
         this.scaledJDIDToRVIDMap = scaledJDIDToRVIDMap;
         this.sRatio = sRatio;
         this.jointDegreeAvaStats = jointDegreeAvaStats;
         this.scaledRVPKentry = scaledRVPKentry;
         this.scaledReverseKV = scaledReverseKV;
         this.originalKVDistribution = originalKVDistribution;
+        this.originalRVMappedScaledRV = originalRVMappedScaledRV;
+        this.originalJDMappedToScaledJD = originalJDMappedToScaledJD;
     }
 
     /**
@@ -320,12 +350,12 @@ public class ParaMapJDToRV implements Runnable {
             Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry, boolean matched) {
         ArrayList<ArrayList<Integer>> scaledKV = new ArrayList<>();
         if (matched) {
-            scaledKV= originalKVentry.getKey();
+            scaledKV = originalKVentry.getKey();
         } else {
             scaledKV.add(scaledClosestJD);
             scaledKV.addAll(scaledClosestRV);
         }
-        
+
         if (!kvToIDsWithoutTable.containsKey(scaledKV)) {
             kvToIDsWithoutTable.put(scaledKV, new ArrayList<Integer>());
         }
@@ -347,36 +377,46 @@ public class ParaMapJDToRV implements Runnable {
         jdIDStartingIndex.put(scaledClosestJD, incrementalFrequency + jdIndex);
     }
 
-    private void cleanRVIDsIfNecessary(ArrayList<Integer> scaledRVIDs, int incrementalFrequency, int rvIndex, HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap, ArrayList<ArrayList<Integer>> scaledClosestRV) {
+    private void cleanRVIDsIfNecessary(ArrayList<Integer> scaledRVIDs, int incrementalFrequency, int rvIndex,
+            HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap, ArrayList<ArrayList<Integer>> scaledClosestRV) {
 
         if (scaledRVIDs.size() == (incrementalFrequency + rvIndex)) {
-            int rvKeySum = calculateRVSum(scaledClosestRV);
-            scaledRVSumMap.get(rvKeySum).remove(scaledClosestRV);
-            if (scaledRVSumMap.get(rvKeySum).isEmpty()) {
-                scaledRVSumMap.remove(rvKeySum);
+            if (originalRVMappedScaledRV.get(currentlyUsingOriginalRV).size() == 1) {
+                originalRVMappedScaledRV.remove(currentlyUsingOriginalRV);
+                int originalRVSum = calculateRVSum(currentlyUsingOriginalRV);
+                originalRVSumMap.get(originalRVSum).remove(currentlyUsingOriginalRV);
+
+            } else {
+                originalRVMappedScaledRV.get(currentlyUsingOriginalRV).remove(scaledClosestRV);
             }
+
         }
+
     }
 
-    private void cleanJDIDsIfNecessary(int[] scaledJDIDs, int incrementalFrequency, int jdIndex, HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap, ArrayList<Integer> scaledClosestJD) {
+    private void cleanJDIDsIfNecessary(int[] scaledJDIDs, int incrementalFrequency, int jdIndex,
+            HashMap<Integer, ArrayList<ArrayList<Integer>>> originalJDSumMap, ArrayList<Integer> scaledClosestJD) {
         if (scaledJDIDs.length == (incrementalFrequency + jdIndex)) {
-            int jdKeySum = calculateJDSum(scaledClosestJD);
-            scaledJDSumMap.get(jdKeySum).remove(scaledClosestJD);
-            if (scaledJDSumMap.get(jdKeySum).isEmpty()) {
-                scaledJDSumMap.remove(jdKeySum);
+            if (originalJDMappedToScaledJD.get(currentlyUsingOriginalJD).size() == 1) {
+                originalJDMappedToScaledJD.remove(currentlyUsingOriginalJD);
+                int originalJDSum = calculateJDSum(currentlyUsingOriginalJD);
+                originalJDSumMap.get(originalJDSum).remove(currentlyUsingOriginalJD);
+
+            } else {
+                originalJDMappedToScaledJD.get(currentlyUsingOriginalJD).remove(scaledClosestJD);
             }
         }
     }
 
     private int synthesizeOneKV(boolean matched, Map.Entry<ArrayList<ArrayList<Integer>>, Integer> originalKVentry,
-            HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVSumMap,
-            HashMap<Integer, ArrayList<ArrayList<Integer>>> scaledJDSumMap, int expectedFrequency,
+            HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap,
+            HashMap<Integer, ArrayList<ArrayList<Integer>>> originalJDSumMap, int expectedFrequency,
             ArrayList<Integer> scaledClosestJD, ArrayList<ArrayList<Integer>> scaledClosestRV, String table,
             HashMap<ArrayList<ArrayList<Integer>>, Integer> rvIDStartingIndex,
             HashMap<ArrayList<Integer>, Integer> jdIDStartingIndex, HashMap<Integer, Integer> mapJDToRV,
             HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>> kvToIDsWithoutTable) {
         ArrayList<Integer> scaledRVIDs = scaledRVPKentry.getValue().get(scaledClosestRV);
-        int[] scaledJDIDs = jointDegreeAvaStats.get(table).get(scaledClosestJD).ids;
+        int[] scaledJDIDs = jointDegreeAvaStats.get(scaledClosestJD).ids;
 
         initializeIDStartingIndexes(rvIDStartingIndex, scaledClosestRV, jdIDStartingIndex, scaledClosestJD);
         int incrementalFrequency = calculateIncrementalFrequency(scaledRVIDs, rvIDStartingIndex, scaledClosestRV, scaledJDIDs, jdIDStartingIndex, scaledClosestJD, expectedFrequency);
@@ -388,12 +428,268 @@ public class ParaMapJDToRV implements Runnable {
 
         updateIDMaps(incrementalFrequency, mapJDToRV, scaledJDIDs, scaledRVIDs, rvIndex, scaledKV, kvToIDsWithoutTable, jdIndex);
         expectedFrequency -= incrementalFrequency;
-
+        if (incrementalFrequency!=0 && saveMap){
+            if (!scaledKVMappedtoOriginalKV.containsKey(scaledKV)){
+                scaledKVMappedtoOriginalKV.put(scaledKV, new ArrayList<ArrayList<ArrayList<Integer>>>());
+            }
+            if (!scaledKVMappedtoOriginalKV.get(scaledKV).contains(originalKVentry.getKey())){
+                scaledKVMappedtoOriginalKV.get(scaledKV).add(originalKVentry.getKey());
+            }
+        }
         updateIDStartingIndex(scaledClosestJD, incrementalFrequency, jdIndex, scaledClosestRV, rvIndex, rvIDStartingIndex, jdIDStartingIndex);
 
-        cleanRVIDsIfNecessary(scaledRVIDs, incrementalFrequency, rvIndex, scaledRVSumMap, scaledClosestRV);
-        cleanJDIDsIfNecessary(scaledJDIDs, incrementalFrequency, jdIndex, scaledJDSumMap, scaledClosestJD);
+        cleanRVIDsIfNecessary(scaledRVIDs, incrementalFrequency, rvIndex, originalRVSumMap, scaledClosestRV);
+        cleanJDIDsIfNecessary(scaledJDIDs, incrementalFrequency, jdIndex, originalJDSumMap, scaledClosestJD);
         return expectedFrequency;
     }
 
+    HashMap<Integer, ArrayList<ArrayList<Integer>>> originalJDSumMap = new HashMap<>();
+    int[] jdSumValues;
+    HashSet<Integer> removedJDSumValues = new HashSet<>();
+
+    private void calculateOriginalSumMap() {
+
+        for (ArrayList<ArrayList<Integer>> originalRV : originalRVMappedScaledRV.keySet()) {
+            int rvSum = calculateRVSum(originalRV);
+            if (!originalRVSumMap.containsKey(rvSum)) {
+                originalRVSumMap.put(rvSum, new ArrayList<ArrayList<ArrayList<Integer>>>());
+            }
+            originalRVSumMap.get(rvSum).add(originalRV);
+        }
+        rvSumValues = new int[originalRVSumMap.size()];
+        removedRVSumValues = new HashSet<Integer>();
+        int count = 0;
+        for (int rvSum : originalRVSumMap.keySet()) {
+            rvSumValues[count] = rvSum;
+            count++;
+        }
+
+        for (ArrayList<Integer> originalJD : originalJDMappedToScaledJD.keySet()) {
+            int jdSum = calculateJDSum(originalJD);
+            if (!originalJDSumMap.containsKey(jdSum)) {
+                originalJDSumMap.put(jdSum, new ArrayList<ArrayList<Integer>>());
+            }
+            originalJDSumMap.get(jdSum).add(originalJD);
+        }
+
+        jdSumValues = new int[originalJDSumMap.size()];
+        removedJDSumValues = new HashSet<>();
+
+        count = 0;
+        for (int jdSum : originalJDSumMap.keySet()) {
+            jdSumValues[count] = jdSum;
+            count++;
+        }
+
+    }
+
+    private ArrayList<ArrayList<Integer>> calculateOriginalRV(ArrayList<ArrayList<Integer>> originalRV) {
+        if (originalRVMappedScaledRV.containsKey(originalRV) && !originalRVMappedScaledRV.get(originalRV).isEmpty()) {
+            return originalRV;
+        } else {
+            int originalSum = calculateRVSum(originalRV);
+            if (originalRVSumMap.containsKey(originalSum)) {
+                originalRVSumMap.get(originalSum).remove(originalRV);
+            }
+            originalRVMappedScaledRV.remove(originalRV);
+            while (!originalRVSumMap.isEmpty()) {
+                int matchingIndex = Math.abs(Arrays.binarySearch(rvSumValues, originalSum));
+                for (int i = 0; i < rvSumValues.length; i++) {
+                    for (int j = -1; j <= 1; j += 2) {
+                        int newMatchingIndex = matchingIndex + i * j;
+                        if (newMatchingIndex >= rvSumValues.length || newMatchingIndex < 0) {
+                            continue;
+                        }
+                        int newRVSum = rvSumValues[newMatchingIndex];
+                        if (originalRVSumMap.containsKey(newRVSum) && originalRVSumMap.get(newRVSum).size() == 0) {
+                            originalRVSumMap.remove(newRVSum);
+                            removedRVSumValues.add(newRVSum);
+                        } else if (originalRVSumMap.containsKey(newRVSum)) {
+                            int minIndex = calculateMinIndexForRV(originalRVSumMap.get(newRVSum), originalRVMappedScaledRV, originalRV, newRVSum);
+                            if (minIndex != -1) {
+                                return originalRVSumMap.get(newRVSum).get(minIndex);
+                            } else {
+                                originalRVSumMap.remove(newRVSum);
+                                removedRVSumValues.add(newRVSum);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private int calculateMinIndexForRV(ArrayList<ArrayList<ArrayList<Integer>>> rvs, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV, ArrayList<ArrayList<Integer>> originalRV, int newRVSum) {
+        int minIndex = -1;
+        int minDistance = Integer.MAX_VALUE;
+
+        if (rvs.size() == 1) {
+            if (!originalRVMappedScaledRV.containsKey(rvs.get(0)) || originalRVMappedScaledRV.get(rvs.get(0)).isEmpty()) {
+                originalRVMappedScaledRV.remove(rvs.get(0));
+                return -1;
+            }
+            return 0;
+        }
+        for (int i = 0; i < rvs.size(); i++) {
+            ArrayList<ArrayList<Integer>> rv = rvs.get(i);
+            if (!originalRVMappedScaledRV.containsKey(rv) || originalRVMappedScaledRV.get(rv).isEmpty()) {
+                originalRVMappedScaledRV.remove(rv);
+                continue;
+            }
+            int distance = calculateRVDistance(rv, originalRV);
+            if (distance < minDistance) {
+                minDistance = distance;
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
+
+    private int calculateRVDistance(ArrayList<ArrayList<Integer>> rv, ArrayList<ArrayList<Integer>> originalRV) {
+        int distance = 0;
+        for (int i = 0; i < rv.size(); i++) {
+            distance += calculateJDDistance(rv.get(i), originalRV.get(i));
+        }
+        return distance;
+    }
+
+    private int calculateJDDistance(ArrayList<Integer> jd1, ArrayList<Integer> jd2) {
+        int distance = 0;
+        for (int i = 0; i < jd1.size(); i++) {
+            distance += Math.abs(jd1.get(i) - jd2.get(i));
+        }
+        return distance;
+    }
+
+    private void cleanRVMapping(HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV) {
+        ArrayList<ArrayList<ArrayList<Integer>>> removedRVs = new ArrayList<>();
+        for (Entry<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> entry : originalRVMappedScaledRV.entrySet()) {
+            if (entry.getValue().size() == 0) {
+                removedRVs.add(entry.getKey());
+            }
+        }
+        for (ArrayList<ArrayList<Integer>> removedRV : removedRVs) {
+            originalRVMappedScaledRV.remove(removedRV);
+        }
+    }
+
+    private void cleanJDMapping(HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> originalJDMappedToScaledJD) {
+        ArrayList<ArrayList<Integer>> removedJDs = new ArrayList<>();
+        for (Entry<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> entry : originalJDMappedToScaledJD.entrySet()) {
+            if (entry.getValue().isEmpty()) {
+                removedJDs.add(entry.getKey());
+            }
+        }
+        for (ArrayList<Integer> removedJD : removedJDs) {
+            originalJDMappedToScaledJD.remove(removedJD);
+        }
+    }
+
+    private void cleanOriginalRVSumMapping(HashMap<Integer, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVSumMap) {
+        ArrayList<Integer> removedSums = new ArrayList<>();
+        for (int k : originalRVSumMap.keySet()) {
+            if (originalRVSumMap.get(k).isEmpty()) {
+                removedSums.add(k);
+            }
+        }
+        for (int k : removedSums) {
+            originalRVSumMap.remove(k);
+        }
+    }
+
+    private void cleanOriginalJDSumMapping(HashMap<Integer, ArrayList<ArrayList<Integer>>> originalJDSumMap) {
+        ArrayList<Integer> removedSums = new ArrayList<>();
+        for (int k : originalJDSumMap.keySet()) {
+            if (originalJDSumMap.get(k).isEmpty()) {
+                removedSums.add(k);
+            }
+        }
+        for (int k : removedSums) {
+            originalJDSumMap.remove(k);
+        }
+    }
+
+    private ArrayList<Integer> calculateClosestOriginalJDAndScaledJD(ArrayList<Integer> originalJD, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> originalJDMappedToScaledJD) {
+        ArrayList<Integer> calculatedOriginalJD = calculateOriginalJD(originalJD);
+        currentlyUsingOriginalJD = calculatedOriginalJD;
+        if (calculatedOriginalJD.isEmpty()) {
+            return calculatedOriginalJD;
+        }
+
+        return originalJDMappedToScaledJD.get(calculatedOriginalJD).get(0);
+    }
+
+    private ArrayList<ArrayList<Integer>> calculateClosestOriginalAndScaledRV(ArrayList<ArrayList<Integer>> originalRV, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedScaledRV) {
+        ArrayList<ArrayList<Integer>> calculatedOriginalRV = calculateOriginalRV(originalRV);
+        currentlyUsingOriginalRV = calculatedOriginalRV;
+        if (calculatedOriginalRV.isEmpty()) {
+            return calculatedOriginalRV;
+        }
+        return originalRVMappedScaledRV.get(calculatedOriginalRV).get(0);
+    }
+
+    private ArrayList<Integer> calculateOriginalJD(ArrayList<Integer> originalJD) {
+        if (originalJDMappedToScaledJD.containsKey(originalJD) && !originalJDMappedToScaledJD.get(originalJD).isEmpty()) {
+            return originalJD;
+        } else {
+            int originalSum = calculateJDSum(originalJD);
+            if (originalJDSumMap.containsKey(originalSum)) {
+                originalJDSumMap.get(originalSum).remove(originalJD);
+            }
+            originalJDMappedToScaledJD.remove(originalJD);
+            while (!originalJDSumMap.isEmpty()) {
+                int matchingIndex = Math.abs(Arrays.binarySearch(jdSumValues, originalSum));
+                for (int i = 0; i < jdSumValues.length; i++) {
+                    for (int j = -1; j <= 1; j += 2) {
+                        int newMatchingIndex = matchingIndex + i * j;
+                        if (newMatchingIndex >= jdSumValues.length || newMatchingIndex < 0) {
+                            continue;
+                        }
+                        int newJDSum = jdSumValues[newMatchingIndex];
+                        if (originalJDSumMap.containsKey(newJDSum) && originalJDSumMap.get(newJDSum).size() == 0) {
+                            originalJDSumMap.remove(newJDSum);
+                            removedJDSumValues.add(newJDSum);
+                        } else if (originalJDSumMap.containsKey(newJDSum)) {
+                            int minIndex = calculateMinIndexForJD(originalJDSumMap.get(newJDSum), originalJDMappedToScaledJD, originalJD, newJDSum);
+                            if (minIndex != -1) {
+                                return originalJDSumMap.get(newJDSum).get(minIndex);
+                            } else {
+                                originalJDSumMap.remove(newJDSum);
+                                removedJDSumValues.add(newJDSum);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private int calculateMinIndexForJD(ArrayList<ArrayList<Integer>> jds, HashMap<ArrayList<Integer>, ArrayList<ArrayList<Integer>>> originalJDMappedToScaledJD,
+            ArrayList<Integer> originalJD, int newJDSum) {
+        int minIndex = -1;
+        int minDistance = Integer.MAX_VALUE;
+
+        if (jds.size() == 1) {
+            if (!originalJDMappedToScaledJD.containsKey(jds.get(0)) || originalJDMappedToScaledJD.get(jds.get(0)).isEmpty()) {
+                originalJDMappedToScaledJD.remove(jds.get(0));
+                return -1;
+            }
+            return 0;
+        }
+        for (int i = 0; i < jds.size(); i++) {
+            ArrayList<Integer> jd = jds.get(i);
+            if (!originalJDMappedToScaledJD.containsKey(jd) || originalJDMappedToScaledJD.get(jd).isEmpty()) {
+                originalJDMappedToScaledJD.remove(jd);
+                continue;
+            }
+            int distance = calculateJDDistance(jd, originalJD);
+            if (distance < minDistance) {
+                minDistance = distance;
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
 }
