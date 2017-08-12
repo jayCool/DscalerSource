@@ -72,7 +72,7 @@ public class ParaMapJDToRV implements Runnable {
                     if (originalJD.equals(scaledClosestJD) && originalRV.equals(scaledClosestRV)) {
                         matched = true;
                     }
-
+                
                     expectedFrequency = synthesizeOneKV(matched, originalKVentry, originalRVSumMap, originalJDSumMap, expectedFrequency, scaledClosestJD,
                             scaledClosestRV, curTable, rvIDStartingIndex, jdIDStartingIndex, mapJDToRV, kvToIDsWithoutTable);
                 
@@ -80,7 +80,6 @@ public class ParaMapJDToRV implements Runnable {
 
             }
         }
-        
         scaledReverseKV.put(curTable, kvToIDsWithoutTable);
         scaledJDIDToRVIDMap.put(curTable, mapJDToRV);
     }
@@ -278,7 +277,8 @@ public class ParaMapJDToRV implements Runnable {
         return originalRV;
     }
 
-    public void setInitials(boolean saveMap, HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV, 
+    public void setInitials(boolean saveMap, 
+            HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>>> scaledKVMappedtoOriginalKV, 
             HashMap<String, HashMap<Integer, Integer>> scaledJDIDToRVIDMap, double sRatio,
             HashMap<ArrayList<Integer>, AvaliableStatistics> jointDegreeAvaStats,
             Map.Entry<String, HashMap<ArrayList<ArrayList<Integer>>, ArrayList<Integer>>> scaledRVPKentry,
@@ -289,7 +289,7 @@ public class ParaMapJDToRV implements Runnable {
     ) {
          curTable = scaledRVPKentry.getKey();
         this.saveMap = saveMap;
-        scaledKVMappedtoOriginalKV.put(curTable, this.originalRVMappedScaledRV);
+        scaledKVMappedtoOriginalKV.put(curTable, this.scaledKVMappedtoOriginalKV);
         this.scaledJDIDToRVIDMap = scaledJDIDToRVIDMap;
         this.sRatio = sRatio;
         this.jointDegreeAvaStats = jointDegreeAvaStats;
@@ -400,7 +400,10 @@ public class ParaMapJDToRV implements Runnable {
             if (originalJDMappedToScaledJD.get(currentlyUsingOriginalJD).size() == 1) {
                 originalJDMappedToScaledJD.remove(currentlyUsingOriginalJD);
                 int originalJDSum = calculateJDSum(currentlyUsingOriginalJD);
+                if (originalJDSumMap.get(originalJDSum).size()==1) originalJDSumMap.remove(originalJDSum);
+                else
                 originalJDSumMap.get(originalJDSum).remove(currentlyUsingOriginalJD);
+                
 
             } else {
                 originalJDMappedToScaledJD.get(currentlyUsingOriginalJD).remove(scaledClosestJD);

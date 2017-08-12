@@ -5,7 +5,6 @@
  */
 package paraComputation;
 
-
 import db.structs.ComKey;
 import dataStructure.AvaliableStatistics;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ public class ParaCompAvaStats implements Runnable {
     ) {
         this.jointDegreeEntry = jointDegreeEntry;
         this.jointDegreeAvaStats = jointDegreeAvaStats;
-      //  this.ckJDAvaCounts = ckJDAvaCounts;
+        //  this.ckJDAvaCounts = ckJDAvaCounts;
 
     }
 
@@ -36,12 +35,26 @@ public class ParaCompAvaStats implements Runnable {
     public void run() {
         int startID = 0;
         HashMap<ArrayList<Integer>, AvaliableStatistics> jdAvaStats = new HashMap<>();
-        /** for (int i = 0; i < jointDegreeEntry.getKey().size(); i++) {
-            ckJDAvaCounts.put(jointDegreeEntry.getKey().get(i), new HashMap<ArrayList<Integer>, Integer>());
-        }*/
-       
+        int sum = 0;
+        int index = -1;
+        if (jointDegreeEntry.getKey().get(0).sourceTable.equals("user")) {
+            for (int j = 0; j < jointDegreeEntry.getKey().size(); j++) {
+                ComKey ck = jointDegreeEntry.getKey().get(j);
+                if (ck.getReferencingTable().equals("diary_commment")) {
+                    index = j;
+                }
+            }
+        }
+        if (jointDegreeEntry.getKey().get(0).sourceTable.equals("diary")) {
+            for (int j = 0; j < jointDegreeEntry.getKey().size(); j++) {
+                ComKey ck = jointDegreeEntry.getKey().get(j);
+                if (ck.getReferencingTable().equals("diary_commment")) {
+                    index = j;
+                }
+            }
+        }
         for (Map.Entry<ArrayList<Integer>, Integer> jointDegreeFreqEntry : jointDegreeEntry.getValue().entrySet()) {
-           
+
             int[] startid = new int[jointDegreeEntry.getKey().size()];
             int[] ids = new int[jointDegreeFreqEntry.getValue()];
             for (int j = 0; j < jointDegreeFreqEntry.getValue(); j++) {
@@ -49,23 +62,28 @@ public class ParaCompAvaStats implements Runnable {
             }
             AvaliableStatistics avaStat = new AvaliableStatistics();
 
-            
             int[] ckAvaCounts = new int[jointDegreeFreqEntry.getKey().size()];
             for (int i = 0; i < jointDegreeEntry.getKey().size(); i++) {
                 int c = jointDegreeFreqEntry.getValue() * jointDegreeFreqEntry.getKey().get(i);
-            //    ckJDAvaCounts.get(jointDegreeEntry.getKey().get(i)).put(jointDegreeFreqEntry.getKey(), c);
+                if (index >= 0) {
+                    sum += c;
+                }
                 ckAvaCounts[i] = c;
             }
             startID += jointDegreeFreqEntry.getValue();
 
             avaStat.ids = ids;
             avaStat.startIndex = startid;
-            
+
             avaStat.ckAvaCount = ckAvaCounts;
-            
+
             jdAvaStats.put(jointDegreeFreqEntry.getKey(), avaStat);
 
         }
+        if (index >= 0) {
+            System.err.println(jointDegreeEntry.getKey().get(index).toString() +"\t" +sum);
+        }
+
         jointDegreeAvaStats.put(jointDegreeEntry.getKey().get(0).sourceTable, jdAvaStats);
     }
 

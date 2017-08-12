@@ -48,11 +48,12 @@ public class JDCorrelation extends PrintFunction implements Runnable {
     private HashMap<ArrayList<Integer>, Integer> jointDegreeCorrelation(HashMap<ArrayList<Integer>, ArrayList<Integer>> originalReverseJointDegrees,
             ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
         List<Entry<ArrayList<Integer>, ArrayList<Integer>>> sortedOriginalJDDis = new Sort().sortOnKeySumJD(originalReverseJointDegrees);
-
+        checkValidness(scaledDegreeDistributions);
         HashMap<ArrayList<Integer>, Integer> scaledJDDis = jdCorrelationOneLoop(sortedOriginalJDDis, scaledDegreeDistributions);
         iterations++;
-
-        while (!scaledDegreeDistributions.get(0).keySet().isEmpty()) {
+        
+        while (!scaledDegreeDistributions.get(0).isEmpty() && !emptyScaledIDFreqs) {
+            
             HashMap<ArrayList<Integer>, Integer> extraScaledOneJDDis = jdCorrelationOneLoop(sortedOriginalJDDis, scaledDegreeDistributions);
             mergeExtraJDDis(extraScaledOneJDDis, scaledJDDis);
         }
@@ -73,7 +74,7 @@ public class JDCorrelation extends PrintFunction implements Runnable {
             ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
 
         clearEmptyscaledDegreeDistributions(scaledDegreeDistributions);
-
+        //System.err.println("here!" + scaledDegreeDistributions + "\t" + emptyScaledIDFreqs);
         HashMap<ArrayList<Integer>, Integer> scaledOneLoopJDDis = new HashMap<>();
 
         for (int i = 0; i < sortedOriginalJDDis.size() && !scaledDegreeDistributions.get(0).keySet().isEmpty() && sortedOriginalJDDis.size() > 0; i++) {
@@ -177,7 +178,7 @@ public class JDCorrelation extends PrintFunction implements Runnable {
             ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions, ArrayList<Integer> calculatedJD) {
 
         for (int j = 0; j < originalJDEntry.getKey().size(); j++) {
-            if (scaledDegreeDistributions.get(j).keySet().size() == 0) {
+            if (scaledDegreeDistributions.get(j).size() == 0) {
                 emptyScaledIDFreqs = true;
                 break;
             }
@@ -329,6 +330,18 @@ public class JDCorrelation extends PrintFunction implements Runnable {
             }
             scaledJDDis.put(entry.getKey(), scaledJDDis.get(entry.getKey()) + entry.getValue());
         }
+    }
+
+    private void checkValidness(ArrayList<HashMap<Integer, Integer>> scaledDegreeDistributions) {
+        ArrayList<Integer> sums = new ArrayList<>();
+        for(int i = 0; i < scaledDegreeDistributions.size(); i++){
+            int sum = 0;
+            for (int j: scaledDegreeDistributions.get(i).values()){
+                sum += j;
+            }
+            sums.add(sum);
+        }
+        System.err.println("sum: " + sums);
     }
 
 }

@@ -34,8 +34,7 @@ public class ParaRVCorr implements Runnable {
     HashMap<ArrayList<ArrayList<Integer>>, Integer> previouslyCalculatedBound = new HashMap<>();
     boolean terminated = false;
     public double sRatio;
-    
-    
+
     int[][] sumValues;
     public String curTable;
     public HashMap<String, ArrayList<ComKey>> referencingComKeyMap;
@@ -56,8 +55,8 @@ public class ParaRVCorr implements Runnable {
     ArrayList<Integer>[] currentlyUsingOriginalJDs;
     int saveMapFlag = -1; // -1:no storing, 0: store original to scaled, 1: store scaled to original
     HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> originalRVMappedToScaledRV = new HashMap<>();
- HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVMappedToOriginalRV = new HashMap<>();
- 
+    HashMap<ArrayList<ArrayList<Integer>>, ArrayList<ArrayList<ArrayList<Integer>>>> scaledRVMappedToOriginalRV = new HashMap<>();
+
     public ParaRVCorr(HashMap<ComKey, HashMap<Integer, ArrayList<ArrayList<Integer>>>> jdSumMap,
             HashMap<String, HashMap<ArrayList<ArrayList<Integer>>, Integer>> scaledRVDisMap,
             HashMap<String, HashMap<ArrayList<Integer>, AvaliableStatistics>> jointDegreeAvaStats,
@@ -69,8 +68,7 @@ public class ParaRVCorr implements Runnable {
         this.mergedDegreeTitle = mergedDegreeTitle;
         this.scaledRVDisMap = scaledRVDisMap;
     }
-    
-    
+
     /**
      * Initialize the parameters
      *
@@ -96,14 +94,13 @@ public class ParaRVCorr implements Runnable {
         this.referencingComKeyMap = referencingTableMap;
         this.norm1JointDegreeMappingList = norm1JointDegreeMappingList;
         this.uniqueNess = uniqueNess;
-        if (saveMapFlag==0) {
+        if (saveMapFlag == 0) {
             originalRVMappedScaledRV.put(curTable, originalRVMappedToScaledRV);
-        } 
-        if (saveMapFlag == 1){
+        }
+        if (saveMapFlag == 1) {
             scaledRVMappedToOriginalRV.put(curTable, this.scaledRVMappedToOriginalRV);
         }
         this.saveMapFlag = saveMapFlag;
-        
 
     }
 
@@ -112,7 +109,17 @@ public class ParaRVCorr implements Runnable {
         calculateOriginalSumMaps();
 
         calculateJDAvaIndexes();
-
+        /* ArrayList<Integer> counts = new ArrayList<>();
+        for (int i = 0; i < referencingComKeyMap.get(curTable).size(); i++){
+             ComKey ck = referencingComKeyMap.get(curTable).get(i);
+             int c = 0;
+             for (AvaliableStatistics ava: this.jointDegreeAvaStats.get(ck.getSourceTable()).values()){
+                 c += ava.ckAvaCount[this.jointDegreeAvaIndexes.get(i)];
+             }
+             counts.add(c);
+        }
+        System.err.println("counts: " + counts);
+         */
         scaledRVDisMap.put(this.curTable, rvCorrelation());
         terminated = true;
 
@@ -124,6 +131,7 @@ public class ParaRVCorr implements Runnable {
      * @return
      */
     private HashMap<ArrayList<ArrayList<Integer>>, Integer> rvCorrelation() {
+
         HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution = new HashMap<>();
 
         ArrayList<ArrayList<ComKey>> comkeys = calculateCKsOfReferencedTable();
@@ -131,7 +139,7 @@ public class ParaRVCorr implements Runnable {
         List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRVDistribution = sortRVBasedOnJDAppearance(comkeys);
 
         rvCorrelationOneLoop(scaledRVDistribution, sortedRVDistribution);
-        while (iteration < 4 && checkAvailableJD()) {
+        while (iteration < 2 && checkAvailableJD()) {
             rvCorrelationOneLoop(scaledRVDistribution, sortedRVDistribution);
         }
 
@@ -141,11 +149,12 @@ public class ParaRVCorr implements Runnable {
             generateRVList();
             randomRoundEffi(scaledRVDistribution);
         }
+        //System.err.println("rand: " + curTable);
 
         if (checkAvailableJD()) {
             randomSwapEffi(scaledRVDistribution);
         }
-
+       // System.err.println("swap: " + curTable);
         return scaledRVDistribution;
     }
 
@@ -226,22 +235,20 @@ public class ParaRVCorr implements Runnable {
         concurrentScaledRVDis.put(pair1, legalIncrementalFrequency + concurrentScaledRVDis.get(pair1));
         concurrentScaledRVDis.put(pair2, legalIncrementalFrequency + concurrentScaledRVDis.get(pair2));
         ArrayList<ArrayList<Integer>> randomizedRV = rvList.get(rand.nextInt(rvList.size()));
-        if (saveMapFlag==0) {
+        if (saveMapFlag == 0) {
             updateRVNormMap(randomizedRV, pair1, originalRVMappedToScaledRV);
         }
-        if (saveMapFlag==1){
+        if (saveMapFlag == 1) {
             updateRVNormMap(pair1, randomizedRV, scaledRVMappedToOriginalRV);
         }
-        
-        if (saveMapFlag==0) {
-            updateRVNormMap(randomizedRV, pair2,originalRVMappedToScaledRV);
+
+        if (saveMapFlag == 0) {
+            updateRVNormMap(randomizedRV, pair2, originalRVMappedToScaledRV);
         }
-        
-        if (saveMapFlag==1){
+
+        if (saveMapFlag == 1) {
             updateRVNormMap(pair2, randomizedRV, scaledRVMappedToOriginalRV);
         }
-        
-        
 
         incrementalFrequency = incrementalFrequency - legalIncrementalFrequency;
         updateStatisticsForRandom(rv, legalIncrementalFrequency);
@@ -258,8 +265,6 @@ public class ParaRVCorr implements Runnable {
     private void rvCorrelationOneLoop(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution,
             List<Entry<ArrayList<ArrayList<Integer>>, Long>> sortedRVDistribution) {
         iteration++;
-        int tempTotal = 0;
-
         for (int i = 0; i < sortedRVDistribution.size(); i++) {
 
             int frequency = this.originalCoDa.rvDistribution.get(this.curTable).get(sortedRVDistribution.get(i).getKey());
@@ -278,11 +283,11 @@ public class ParaRVCorr implements Runnable {
                 perfectRVCorrelationOneStep(sortedRVDistribution.get(i).getKey(), scaledRVDistribution, incrementalFrequency);
             }
             if (iteration != 1) {
-                tempTotal += incrementalFrequency;
                 normalRVCorrelationOneStep(sortedRVDistribution.get(i).getKey(), scaledRVDistribution, incrementalFrequency);
             }
 
         }
+     //   System.err.println("debug: " + debugTotal + "\t" + curTable + "\t" + iteration);
     }
 
     /**
@@ -317,15 +322,12 @@ public class ParaRVCorr implements Runnable {
 
         budget = incrementalFrequency;
         this.starterRandom = -1;
-        while (budget > 0) {
+        if (budget > 0) {
 
             budget = incrementalFrequency;
             starterRandom = -1;
             ArrayList<ArrayList<ArrayList<Integer>>> rvSet = new ArrayList<>();
             long totalPermutationNumber = calculateRVSet(originalRV, rvSet);
-            if (totalPermutationNumber == -1) {
-                break;
-            }
 
             while (starterRandom < totalPermutationNumber - 1 && budget > 0) {
                 starterRandom++;
@@ -389,10 +391,10 @@ public class ParaRVCorr implements Runnable {
         }
 
         debugTotal += incrementalFrequency;
-        if (this.saveMapFlag==0) {
+        if (this.saveMapFlag == 0) {
             updateRVNormMap(originalRV, calculatedRV, originalRVMappedToScaledRV);
         }
-        if (this.saveMapFlag == 1){
+        if (this.saveMapFlag == 1) {
             updateRVNormMap(calculatedRV, originalRV, scaledRVMappedToOriginalRV);
         }
 
@@ -594,7 +596,6 @@ public class ParaRVCorr implements Runnable {
                     matchingRV.add(rvSet.get(i).get(ind));
                     remainder = remainder % indexSize;
                 } else {
-                    //clean the hashmaps
                     if (norm1JointDegreeMappingList.get(i).containsKey(currentlyUsingOriginalJDs[i])) {
                         norm1JointDegreeMappingList.get(i).get(currentlyUsingOriginalJDs[i]).remove(rvSet.get(i).get(ind));
                         if (norm1JointDegreeMappingList.get(i).get(currentlyUsingOriginalJDs[i]).isEmpty()) {
@@ -699,10 +700,10 @@ public class ParaRVCorr implements Runnable {
     private void updateStatisticsForRandom(ArrayList<ArrayList<Integer>> rv, int incrementalFrequency) {
 
         ArrayList<ArrayList<Integer>> randomizedRV = rvList.get(rand.nextInt(rvList.size()));
-        if (saveMapFlag==0) {
+        if (saveMapFlag == 0) {
             updateRVNormMap(randomizedRV, rv, originalRVMappedToScaledRV);
         }
-        if (saveMapFlag == 1){
+        if (saveMapFlag == 1) {
             updateRVNormMap(rv, randomizedRV, scaledRVMappedToOriginalRV);
         }
         for (int i = 0; i < rv.size(); i++) {
@@ -720,7 +721,6 @@ public class ParaRVCorr implements Runnable {
     private void randomRoundEffi(HashMap<ArrayList<ArrayList<Integer>>, Integer> scaledRVDistribution
     ) {
         ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees = calculateAvailableJD();
-
         ConcurrentHashMap<ArrayList<ArrayList<Integer>>, Integer> concurrentScaledRVDis = new ConcurrentHashMap<>();
         for (Map.Entry<ArrayList<ArrayList<Integer>>, Integer> entry : scaledRVDistribution.entrySet()) {
             concurrentScaledRVDis.put(entry.getKey(), entry.getValue());
@@ -837,9 +837,25 @@ public class ParaRVCorr implements Runnable {
     private int calculateAvailableFrequency(ArrayList<Integer> jointDegreeIndexes, ArrayList<ArrayList<ArrayList<Integer>>> availableJointDegrees) {
         int minNumber = Integer.MAX_VALUE;
         for (int i = 0; i < jointDegreeIndexes.size(); i++) {
-            ArrayList<Integer> jointDegree = availableJointDegrees.get(i).get(jointDegreeIndexes.get(i));
             String srcTable = referencedTables.get(i);
             int jdIndex = jointDegreeAvaIndexes.get(i);
+            /*if (availableJointDegrees.get(i).size() <= jointDegreeIndexes.get(i)){
+                //System.err.println("availableJointDegrees : " + availableJointDegrees);
+                System.err.println("curTable: " + curTable);
+                for (int j=0;j< availableJointDegrees.size() ; j++){
+                    ArrayList<ArrayList<Integer>> jds = availableJointDegrees.get(j);
+                    
+                      String tsrcTable = referencedTables.get(j);
+            int tjdIndex = jointDegreeAvaIndexes.get(j);
+          
+                    for (ArrayList<Integer> jd: jds){
+                        System.err.println("jd: " + jd +  jointDegreeAvaStats.get(tsrcTable).get(jd).ckAvaCount[tjdIndex]);
+                    }
+                }
+                System.exit(-1);
+            }*/
+            ArrayList<Integer> jointDegree = availableJointDegrees.get(i).get(jointDegreeIndexes.get(i));
+
             if (jointDegreeAvaStats.get(srcTable).containsKey(jointDegree) && jointDegreeAvaStats.get(srcTable).get(jointDegree).ckAvaCount[jdIndex] > 0) {
                 minNumber = Math.min(minNumber, jointDegreeAvaStats.get(srcTable).get(jointDegree).ckAvaCount[jdIndex]);
             } else {
@@ -914,8 +930,6 @@ public class ParaRVCorr implements Runnable {
         }
         return result;
     }
-
-
 
     /**
      * Preparation Work: Calculate the indexes for each referenced JD.
@@ -1000,7 +1014,6 @@ public class ParaRVCorr implements Runnable {
             int v = jointDegreeAvaStats.get(sourceTable).get(calculatedRV.get(k)).ckAvaCount[index];
             if (v == 0) {
                 cleanNorm1Map(sourceTable, currentlyUsingOriginalJDs, calculatedRV, k);
-                ///cleanDistanceMap(k, calculatedRV.get(k));
             }
         }
     }
@@ -1137,7 +1150,6 @@ public class ParaRVCorr implements Runnable {
     ArrayList<ArrayList<ArrayList<Integer>>> rvList = new ArrayList<>();
 
     private void generateRVList() {
-        // rvList = new ArrayList<>(originalRVDistribution.keySet());
         for (ArrayList<ArrayList<Integer>> originalRV : originalCoDa.rvDistribution.get(curTable).keySet()) {
             rvList.add(originalRV);
         }

@@ -51,7 +51,7 @@ public class NodeAdjustment {
         }
 
         for (int i = 0; i < Math.min(Constant.CLEANING_THRESHOLD, maxDegree / Constant.CLEANING_THRESHOLD); i++) {
-            degreeList.add(degreeList.size());
+            degreeList.add(maxDegree+i+1);
             frequencies.add(0);
         }
     }
@@ -63,22 +63,26 @@ public class NodeAdjustment {
      * @param degreeDis
      * @param scaledNodeSize
      */
-    public void adjustment(HashMap<Integer, Integer> degreeDis, int scaledNodeSize) {
+    public HashMap<Integer, Integer> adjustment(HashMap<Integer, Integer> degreeDis, int scaledNodeSize) {
         ArrayList<Integer> degreeList = extractDegreeList(degreeDis);
 
         ArrayList<Integer> frequencies = coordinateTheFrequencies(degreeDis, degreeList);
-        
+
         smoothAndExtendDegrees(degreeList, frequencies);
 
         evenDistributionOfDiffs(scaledNodeSize, frequencies);
 
         randomAdjustmentForDiffs(frequencies, scaledNodeSize);
 
-        degreeDis.clear();
-
+        //degreeDis.clear();
+        
+       // System.err.println("sum: "+ sumVector(frequencies));
+        HashMap<Integer, Integer> result = new HashMap<>();
         for (int i = 0; i < degreeList.size(); i++) {
-            degreeDis.put(degreeList.get(i), frequencies.get(i));
+            result.put(degreeList.get(i), frequencies.get(i));
         }
+       // System.err.println("sum: "+ sumVector(frequencies) +"\t" + degreeList.size() + "\t" + frequencies.size());
+        return result;
 
     }
 
@@ -143,12 +147,14 @@ public class NodeAdjustment {
         int vertexSum = sumVector(frequencies);
         int diffs = scaledNodeSize - vertexSum;
         int adjustingIndex = 0;
-
+        
         while (diffs != 0) {
-            frequencies.set(adjustingIndex, Math.max(0, frequencies.get(adjustingIndex) + Math.abs(diffs) / diffs));
+            int newFrequency = frequencies.get(adjustingIndex) + Math.abs(diffs) / diffs;
+            if (newFrequency >= 0) {
+                frequencies.set(adjustingIndex, newFrequency);
+                diffs -= Math.abs(diffs) / diffs;
+            }
             adjustingIndex = (adjustingIndex + 1) % (frequencies.size() - 1);
-            vertexSum = sumVector(frequencies);
-            diffs = scaledNodeSize - vertexSum;
         }
 
     }

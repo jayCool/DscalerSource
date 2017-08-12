@@ -9,6 +9,7 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
 class EdgeAdjust extends Sort {
 
@@ -63,7 +64,7 @@ class EdgeAdjust extends Sort {
         closingDegreeGap(scaleDegree, degreeList, frequencies);
         HashMap<Integer, ArrayList<Integer>> adjustableDiffMap = calAdjustableDiffAndDegreePairs(degreeList, frequencies);
         boolean maxflag = false;
-
+       
         int edgeDiff = -product(degreeList, frequencies) + scaledEdgeSize;
         int ender = frequencies.size() - 1;
         int starter = 0;
@@ -114,11 +115,24 @@ class EdgeAdjust extends Sort {
             frequencies.set(arr.get(1), frequencies.get(arr.get(1)) + 1);
 
         }
+        
+        int product = product(degreeList, frequencies);
+        if (product!=scaledEdgeSize){
+            System.err.println("ede: " + product);
+        }
         HashMap<Integer, Integer> res = new HashMap<>();
-
         for (int i = 0; i < degreeList.size(); i++) {
             res.put(degreeList.get(i), frequencies.get(i));
         }
+        
+        int p = 0;
+        for (Entry<Integer, Integer> entry: res.entrySet()){
+            p += entry.getKey()*entry.getValue();
+        }
+        if (p!=scaledEdgeSize){
+            System.err.println("edep: " + p);
+        } 
+       
         return res;
     }
 
