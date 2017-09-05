@@ -7,7 +7,8 @@ The programme only works for relational database. All files must be stored in on
 Assuming we have four table, A.txt, B.txt, C.txt, D.txt stored in the dir testDB/
 We first need to convert the keys to integers for efficiency purpose. 
 
-====================================Preparation===============================================
+===============Preparation============
+
 We need to prepare a configuration file, called inputDB/config.txt
 
 Assuming 
@@ -47,7 +48,8 @@ id	C_id-C:id	nonKeys
 
 
 
-=============================================Scaling=============================================
+================Scaling================
+
 To scale DB, you can do a uniform scaling (all tables scale by the same ratio):
 
 java -jar -Xmx50g DscalerSource.jar -i inputDB/ -o output/ -static 0.1
