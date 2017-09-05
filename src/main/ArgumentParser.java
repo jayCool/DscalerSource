@@ -27,7 +27,7 @@ public class ArgumentParser {
     private String outPath = "";
 
     @Option(name = "-d", usage = "Delimilter of the fields", metaVar = "Delimilter")
-    private String delimiter = "\\s+";
+    private String delimiter = "\t";
 
     @Option(name = "-f", usage = "Ignore the first line", metaVar = "IGNORE-FIRST-LINE")
     private boolean ignoreFirst = false;

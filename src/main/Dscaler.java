@@ -70,7 +70,7 @@ public class Dscaler {
             Scanner scanner = new Scanner(new File(filePath + "/" + this.scaleTableStr));
 
             while (scanner.hasNext()) {
-                String[] splits = scanner.nextLine().trim().split("\\s+");
+                String[] splits = scanner.nextLine().trim().split(delimiter);
                 scaledTableSize.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
             }
         } else {

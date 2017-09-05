@@ -32,9 +32,9 @@ public class DataProcess {
         String s = bf.readLine();
         //  PrintWriter pw2 = new PrintWriter(new File(file+"clean"));
         PrintWriter pw = new PrintWriter(new File(file + "comma"));
-        int size = s.split("\\s+").length;
+        int size = s.split("\t").length;
         while (s != null) {
-            String temp[] = s.split("\\s+");
+            String temp[] = s.split("\t");
             //    System.out.println(temp.length);
             for (int i = 0; i < size - 1; i++) {
                 pw.print(temp[i] + ";");
@@ -57,10 +57,10 @@ public class DataProcess {
         String s = bf.readLine();
         PrintWriter pw2 = new PrintWriter(new File(file + "clean"));
         PrintWriter pw = new PrintWriter(new File(file + "null"));
-        int size = s.split("\\s+").length;
+        int size = s.split("\t").length;
        // System.out.println(size);
         while (s != null) {
-            String temp[] = s.split("\\s+");
+            String temp[] = s.split("\t");
             //    System.out.println(temp.length);
             if (temp.length < size) {
                 pw.println(s);
@@ -91,11 +91,11 @@ public class DataProcess {
         BufferedReader bf = new BufferedReader(new InputStreamReader(input), 100000);
         String s = bf.readLine();
         PrintWriter pw2 = new PrintWriter(new File(file + "processed"));
-        int size = s.split("\\s+").length;
+        int size = s.split("\t").length;
      //   System.out.println(size);
         int id = 0;
         while (s != null) {
-            String temp[] = s.split("\\s+");
+            String temp[] = s.split("\t");
             //    System.out.println(temp.length);
             if (temp.length < size) {
             } else {
