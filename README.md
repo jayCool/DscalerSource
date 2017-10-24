@@ -1,4 +1,4 @@
-This tool implements the algorithm of GScaler Algorithm published in VLDB2016.
+This tool implements the algorithm of Dscaler Algorithm published in VLDB2016.
 http://www.comp.nus.edu.sg/~upsizer/dscaler.pdf
  
 It is implemented using Netbeans IDE.
