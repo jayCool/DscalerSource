@@ -70,7 +70,7 @@ java -jar Dscaler.jar -i inputDB/ -o output/ -dynamic inputDB/scaleTable.txt
 *** -dynamic inputDB/scaleTable.txt  tells the location of the scaling file. 
 *** config.txt must always be stored in the input folder
 
-==============External Libs================
+==============External Libs===============
 Please download https://github.com/jayCool/CommonLibs for CommonLibs.jar.
 
 
