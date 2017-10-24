@@ -71,6 +71,7 @@ java -jar Dscaler.jar -i inputDB/ -o output/ -dynamic inputDB/scaleTable.txt
 *** config.txt must always be stored in the input folder
 
 ==============External Libs===============
+
 Please download https://github.com/jayCool/CommonLibs for CommonLibs.jar.
 
 
