@@ -157,7 +157,7 @@ public class ParaKVTableGeneration implements Runnable {
 
             for (int i = 0; i < frequency; i++) {
                 int pkID = scaledKVIDEntry.getValue().get(i);
-                bw.write(pkID);
+                bw.write(pkID+"");
                 int rvID = scaledJDIDToRVIDMap.get(curTable).get(pkID);
                 for (int fkid : scaledRVFKIDs[curTableID][rvID]) {
                     bw.write(delimiter + fkid);

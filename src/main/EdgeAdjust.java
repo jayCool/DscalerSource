@@ -78,7 +78,7 @@ class EdgeAdjust extends Sort {
                 frequencies.add(0, 0);
                 degreeList.add(0, 0);
                 frequencies.add(0, 0);
-                maxDegree = 0;
+              
             }
             RunningException.checkTooLongRunTime(starttime);
 
