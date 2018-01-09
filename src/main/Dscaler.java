@@ -72,6 +72,7 @@ public class Dscaler {
 
             while (scanner.hasNext()) {
                 String[] splits = scanner.nextLine().trim().split(delimiter);
+                System.out.println(splits[0]);
                 scaledTableSize.put(splits[1].trim(), Integer.parseInt(splits[0].trim()));
             }
         } else {
