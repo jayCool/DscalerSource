@@ -57,27 +57,29 @@ class EdgeAdjust extends Sort {
      * @return scaledDegreeDistribution After Edge Adjustment
      * @throws FileNotFoundException
      */
-    HashMap<Integer, Integer> smoothDegree(HashMap<Integer, Integer> scaleDegree, int scaledEdgeSize, int scaledNodeSize){
+    HashMap<Integer, Integer> smoothDegree(HashMap<Integer, Integer> scaleDegree, int scaledEdgeSize, int scaledNodeSize) {
         ArrayList<Integer> degreeList = new ArrayList<>();
         ArrayList<Integer> frequencies = new ArrayList<>();
-        
+
         closingDegreeGap(scaleDegree, degreeList, frequencies);
         HashMap<Integer, ArrayList<Integer>> adjustableDiffMap = calAdjustableDiffAndDegreePairs(degreeList, frequencies);
         boolean maxflag = false;
-       
+
         int edgeDiff = -product(degreeList, frequencies) + scaledEdgeSize;
         int ender = frequencies.size() - 1;
         int starter = 0;
-        
-        int maxDegree = degreeList.get(degreeList.size()-1);
-        
-        
+
+        int maxDegree = degreeList.get(degreeList.size() - 1);
+
         while (!adjustableDiffMap.containsKey(edgeDiff) && edgeDiff != 0) {
             System.err.println("edgeDiff: " + edgeDiff + degreeList);
-            if (maxDegree == 1 && edgeDiff <0){
-              //   (degreeList.add(0, 0))
-              //  frequencies.add(0);
-              //  maxDegree = 2;
+            if (maxDegree == 2 && edgeDiff < 0) {
+                degreeList.add(0, 1);
+                frequencies.add(0, 0);
+                degreeList.add(0, 0);
+                frequencies.add(0, 0);
+
+                //  maxDegree = 2;
             }
             RunningException.checkTooLongRunTime(starttime);
 
@@ -124,24 +126,24 @@ class EdgeAdjust extends Sort {
             frequencies.set(arr.get(1), frequencies.get(arr.get(1)) + 1);
 
         }
-        
+
         int product = product(degreeList, frequencies);
-        if (product!=scaledEdgeSize){
+        if (product != scaledEdgeSize) {
             System.err.println("ede: " + product);
         }
         HashMap<Integer, Integer> res = new HashMap<>();
         for (int i = 0; i < degreeList.size(); i++) {
             res.put(degreeList.get(i), frequencies.get(i));
         }
-        
+
         int p = 0;
-        for (Entry<Integer, Integer> entry: res.entrySet()){
-            p += entry.getKey()*entry.getValue();
+        for (Entry<Integer, Integer> entry : res.entrySet()) {
+            p += entry.getKey() * entry.getValue();
         }
-        if (p!=scaledEdgeSize){
+        if (p != scaledEdgeSize) {
             System.err.println("edep: " + p);
-        } 
-       
+        }
+
         return res;
     }
 
@@ -172,7 +174,7 @@ class EdgeAdjust extends Sort {
     private void closingDegreeGap(HashMap<Integer, Integer> scaleDegree, ArrayList<Integer> degreeList, ArrayList<Integer> frequencies) {
         int maxDegree = Collections.max(scaleDegree.keySet());
         int minDegree = Collections.min(scaleDegree.keySet());
-        for (int i = minDegree; i <=maxDegree; i++) {
+        for (int i = minDegree; i <= maxDegree; i++) {
             if (!scaleDegree.containsKey(i)) {
                 scaleDegree.put(i, 0);
             }
