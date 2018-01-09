@@ -73,11 +73,11 @@ class EdgeAdjust extends Sort {
         
         
         while (!adjustableDiffMap.containsKey(edgeDiff) && edgeDiff != 0) {
-            System.err.println("edgeDiff: " + edgeDiff);
+            System.err.println("edgeDiff: " + edgeDiff + degreeList);
             if (maxDegree == 1 && edgeDiff <0){
-                degreeList.add(2);
-                frequencies.add(0);
-                maxDegree = 2;
+              //   (degreeList.add(0, 0))
+              //  frequencies.add(0);
+              //  maxDegree = 2;
             }
             RunningException.checkTooLongRunTime(starttime);
 
