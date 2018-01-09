@@ -69,8 +69,16 @@ class EdgeAdjust extends Sort {
         int ender = frequencies.size() - 1;
         int starter = 0;
         
+        int maxDegree = degreeList.get(degreeList.size()-1);
+        
+        
         while (!adjustableDiffMap.containsKey(edgeDiff) && edgeDiff != 0) {
             System.err.println("edgeDiff: " + edgeDiff);
+            if (maxDegree == 1 && edgeDiff <0){
+                degreeList.add(2);
+                frequencies.add(0);
+                maxDegree = 2;
+            }
             RunningException.checkTooLongRunTime(starttime);
 
             if (edgeDiff < 0) {
