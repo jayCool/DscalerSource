@@ -40,6 +40,14 @@ public class ArgumentParser {
 
     @Option(name = "-l", usage = "leading index of the fks", metaVar = "Leading Index")
     private int leading = 0;
+    
+    @Option(name = "-parallel", usage = "Parallel Running (only for large database)", metaVar = "Parallel")
+    private boolean parallel = false;
+    
+    @Option(name = "-debug", usage = "Print out information for debugging purpose", metaVar = "DEBUG")
+    private boolean debug;
+    
+
 
     public static void main(String[] args) throws FileNotFoundException, IOException {
 
@@ -57,7 +65,7 @@ public class ArgumentParser {
                 }
                 
                 dscaler.setInitials(delimiter, ignoreFirst, dynamicSFile, filePath, outPath, staticS, leading);
-                
+                dscaler.setParallel(parallel);
                 try {
                     dscaler.run();
                 } catch (IOException ex) {

@@ -57,6 +57,7 @@ public class Dscaler {
     HashMap<String, Integer> scaledTableSize = new HashMap<>();
     int indexcount = 0;
     ArrayList<Thread> idthread = new ArrayList<>();
+    private boolean parallel;
 
     /**
      *
@@ -95,16 +96,21 @@ public class Dscaler {
             DegreeScaling degreeScale = new DegreeScaling();
             degreeScale.setInitials(originalCoDa.idDegreeDistribution.get(entry.getKey()), scaledTableSize.get(referencingTable), scaledTableSize.get(sourceTable),
                     1.0 * this.scaledTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable), entry.getKey(), scaledCoda.idDegreeDistribution);
-            Thread thread = new Thread(degreeScale);
-            threadList.add(thread);
-            thread.start();
+            if (parallel) {
+                Thread thread = new Thread(degreeScale);
+                threadList.add(thread);
+                thread.start();
+            } else {
+                degreeScale.run();
+            }
         }
-
-        for (Thread thread : threadList) {
-            try {
-                thread.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
+        if (parallel) {
+            for (Thread thread : threadList) {
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
 
@@ -333,7 +339,7 @@ public class Dscaler {
                     this.scaledCoda.jointDegreeDistribution, jointDegreeEntry.getKey(), scaledDegreeDistributions, jointDegreeEntry.getValue());
             jdCorrelation.initialize(scaledTableSize.get(sourceTable) * 1.0 / originalDB.tableSize.get(sourceTable), norm1JointDegreeMapping);
 
-            if (minEntryNumber < 50) {
+            if (!parallel) {
                 jdCorrelation.run();
             } else {
                 Thread thread = new Thread(jdCorrelation);
@@ -341,15 +347,17 @@ public class Dscaler {
             }
         }
 
-        for (Thread thr : threadList) {
-            thr.start();
-        }
+        if (parallel) {
+            for (Thread thr : threadList) {
+                thr.start();
+            }
 
-        for (Thread thr : threadList) {
-            try {
-                thr.join();
-            } catch (InterruptedException ex) {
-                Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
+            for (Thread thr : threadList) {
+                try {
+                    thr.join();
+                } catch (InterruptedException ex) {
+                    Logger.getLogger(Dscaler.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }
@@ -549,6 +557,10 @@ public class Dscaler {
             norm1JointDegreeMappingList.add(norm1JointDegreeMapClone);
         }
         return norm1JointDegreeMappingList;
+    }
+
+    void setParallel(boolean parallel) {
+        this.parallel = parallel;
     }
 
 }

@@ -70,6 +70,7 @@ class EdgeAdjust extends Sort {
         int starter = 0;
         
         while (!adjustableDiffMap.containsKey(edgeDiff) && edgeDiff != 0) {
+            System.err.println("edgeDiff: " + edgeDiff);
             RunningException.checkTooLongRunTime(starttime);
 
             if (edgeDiff < 0) {
