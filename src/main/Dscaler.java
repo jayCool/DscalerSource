@@ -68,7 +68,7 @@ public class Dscaler {
 
         HashMap<String, Integer> scaledTableSize = new HashMap<>();
         if (this.dynamicSFile.length() > 0) {
-            Scanner scanner = new Scanner(new File(filePath + "/" + this.scaleTableStr));
+            Scanner scanner = new Scanner(new File(this.dynamicSFile));
 
             while (scanner.hasNext()) {
                 String[] splits = scanner.nextLine().trim().split(delimiter);
